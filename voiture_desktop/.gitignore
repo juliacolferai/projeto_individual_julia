@@ -1,0 +1,7 @@
+
+ambiente_voiture/
+
+*.pyc
+__pycache__/
+
+.env
