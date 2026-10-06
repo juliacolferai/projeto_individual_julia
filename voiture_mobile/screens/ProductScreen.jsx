@@ -35,7 +35,6 @@ export default function ProductsScreen() {
         },
       });
 
-      // Garante que products sempre seja um array
       if (Array.isArray(response.data)) {
         setProducts(response.data);
       } else {
@@ -69,7 +68,7 @@ export default function ProductsScreen() {
   );
 
   // ======================================================
-  // FILTRO DE PESQUISA
+  // FILTRO
   // ======================================================
 
   const filteredProducts = products.filter((produto) => {
@@ -103,10 +102,6 @@ export default function ProductsScreen() {
   // ======================================================
 
   const renderProduct = ({ item }) => {
-    // ------------------------------------------------------
-    // TRATAMENTO DOS VALORES
-    // ------------------------------------------------------
-
     const estoque = Number(
       item?.estoque_quantidade ?? 0
     );
@@ -119,22 +114,12 @@ export default function ProductsScreen() {
       item?.produto_preco_venda ?? 0
     );
 
-    const peso = item?.produto_peso;
-
-    // ------------------------------------------------------
-    // VERIFICA SE O ESTOQUE ESTÁ BAIXO
-    // ------------------------------------------------------
-
-    const estoqueBaixo = estoque <= estoqueMinimo;
-
-    // ------------------------------------------------------
-    // VERIFICA SE EXISTE IMAGEM
-    // ------------------------------------------------------
-
     const possuiImagem =
       item?.possui_imagem === true ||
       item?.possui_imagem === 1 ||
       item?.possui_imagem === '1';
+
+    const estoqueBaixo = estoque <= estoqueMinimo;
 
     return (
       <View style={styles.card}>
@@ -142,6 +127,7 @@ export default function ProductsScreen() {
         {/* IMAGEM */}
 
         <View style={styles.imageContainer}>
+
           {possuiImagem ? (
             <Image
               source={{
@@ -160,8 +146,8 @@ export default function ProductsScreen() {
             <View style={styles.noImage}>
               <Ionicons
                 name="image-outline"
-                size={50}
-                color="#64748B"
+                size={40}
+                color="#94A3B8"
               />
 
               <Text style={styles.noImageText}>
@@ -169,126 +155,114 @@ export default function ProductsScreen() {
               </Text>
             </View>
           )}
-        </View>
 
-        {/* CONTEÚDO */}
+        
+          {/* STATUS */}
 
-        <View style={styles.content}>
-
-          {/* NOME + ESTOQUE */}
-
-          <View style={styles.topRow}>
-
-            <View style={styles.productInfo}>
-
-              <Text
-                style={styles.name}
-                numberOfLines={2}
-              >
-                {item?.produto_nome || 'Produto sem nome'}
-              </Text>
-
-              <Text style={styles.category}>
-                {item?.produto_categoria || 'Sem categoria'}
-              </Text>
-
-            </View>
-
+          <View
+            style={[
+              styles.statusBadge,
+              estoqueBaixo
+                ? styles.statusLow
+                : styles.statusAvailable,
+            ]}
+          >
             <View
               style={[
-                styles.stockBadge,
-                {
-                  backgroundColor: estoqueBaixo
-                    ? '#DC2626'
-                    : '#094F63',
-                },
+                styles.statusDot,
+                estoqueBaixo
+                  ? styles.dotLow
+                  : styles.dotAvailable,
               ]}
-            >
-
-              <Text style={styles.stockText}>
-                {estoque}
-              </Text>
-
-            </View>
-
-          </View>
-
-          {/* INFORMAÇÕES */}
-
-          <View style={styles.infoRow}>
-
-            <View style={styles.infoCard}>
-
-              <Ionicons
-                name="cube-outline"
-                size={18}
-                color="#094F63"
-              />
-
-              <Text style={styles.infoText}>
-                Estoque: {estoque}
-              </Text>
-
-            </View>
-
-            <View style={styles.infoCard}>
-
-              <Ionicons
-                name="location-outline"
-                size={18}
-                color="#094F63"
-              />
-
-              <Text
-                style={styles.infoText}
-                numberOfLines={1}
-              >
-                {item?.produto_localizacao ||
-                  'Sem local'}
-              </Text>
-
-            </View>
-
-          </View>
-
-          {/* DETALHES */}
-
-          <View style={styles.detailsRow}>
-
-            <Text style={styles.detailText}>
-              Peso: {peso ?? '—'}
-            </Text>
-
-            <Text style={styles.detailText}>
-              Mínimo: {estoqueMinimo}
-            </Text>
-
-          </View>
-
-          {/* PREÇO + STATUS */}
-
-          <View style={styles.bottomRow}>
-
-            <Text style={styles.price}>
-              R${' '}
-              {preco
-                .toFixed(2)
-                .replace('.', ',')}
-            </Text>
+            />
 
             <Text
               style={[
-                styles.stockStatus,
-                {
-                  color: estoqueBaixo
-                    ? '#DC2626'
-                    : '#0F766E',
-                },
+                styles.statusText,
+                estoqueBaixo
+                  ? styles.statusTextLow
+                  : styles.statusTextAvailable,
               ]}
             >
               {estoqueBaixo
-                ? 'Estoque baixo'
+                ? 'Baixo'
                 : 'Disponível'}
+            </Text>
+          </View>
+
+        </View>
+
+        {/* INFORMAÇÕES */}
+
+        <View style={styles.cardContent}>
+
+          <Text
+            style={styles.category}
+            numberOfLines={1}
+          >
+            {item?.produto_categoria ||
+              'Sem categoria'}
+          </Text>
+
+          <Text
+            style={styles.name}
+            numberOfLines={2}
+          >
+            {item?.produto_nome ||
+              'Produto sem nome'}
+          </Text>
+
+          {/* PREÇO */}
+
+          <Text style={styles.price}>
+            R${' '}
+            {preco
+              .toFixed(2)
+              .replace('.', ',')}
+          </Text>
+
+          {/* ESTOQUE */}
+
+          <View style={styles.stockRow}>
+
+            <View style={styles.stockInfo}>
+
+              <Ionicons
+                name="cube-outline"
+                size={15}
+                color="#094F63"
+              />
+
+              <Text style={styles.stockText}>
+                {estoque} em estoque
+              </Text>
+
+            </View>
+
+            <View style={styles.minimumContainer}>
+              <Text style={styles.minimumText}>
+                Mín. {estoqueMinimo}
+              </Text>
+            </View>
+
+          </View>
+
+          {/* LOCALIZAÇÃO */}
+
+          <View style={styles.locationRow}>
+
+            <Ionicons
+              name="location-outline"
+              size={14}
+              color="#94A3B8"
+            />
+
+            <Text
+              style={styles.locationText}
+              numberOfLines={1}
+            >
+              {item?.produto_localizacao ||
+                'Sem localização'}
             </Text>
 
           </View>
@@ -300,17 +274,19 @@ export default function ProductsScreen() {
   };
 
   // ======================================================
-  // CARREGANDO
+  // LOADING
   // ======================================================
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
 
-        <ActivityIndicator
-          size="large"
-          color="#094F63"
-        />
+        <View style={styles.loadingCircle}>
+          <ActivityIndicator
+            size="large"
+            color="#094F63"
+          />
+        </View>
 
         <Text style={styles.loadingText}>
           Carregando produtos...
@@ -333,27 +309,26 @@ export default function ProductsScreen() {
 
         <View>
 
-          <Text style={styles.title}>
-            Produtos
+          <Text style={styles.greeting}>
+            Estoque
           </Text>
 
-          <Text style={styles.subtitle}>
-            Consulte os produtos cadastrados
+          <Text style={styles.title}>
+            Produtos
           </Text>
 
         </View>
 
         <TouchableOpacity
-          style={styles.filterButton}
+          style={styles.refreshButton}
           onPress={loadProducts}
+          activeOpacity={0.8}
         >
-
           <Ionicons
             name="refresh-outline"
-            size={24}
+            size={22}
             color="#FFFFFF"
           />
-
         </TouchableOpacity>
 
       </View>
@@ -363,8 +338,8 @@ export default function ProductsScreen() {
       <View style={styles.searchContainer}>
 
         <Ionicons
-          name="search"
-          size={22}
+          name="search-outline"
+          size={20}
           color="#94A3B8"
         />
 
@@ -378,12 +353,61 @@ export default function ProductsScreen() {
           autoCorrect={false}
         />
 
+        {search.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setSearch('')}
+          >
+            <Ionicons
+              name="close-circle"
+              size={20}
+              color="#94A3B8"
+            />
+          </TouchableOpacity>
+        )}
+
+      </View>
+
+      {/* TÍTULO DA LISTA */}
+
+      <View style={styles.listHeader}>
+
+        <View>
+
+          <Text style={styles.sectionTitle}>
+            Seus produtos
+          </Text>
+
+          <Text style={styles.productCount}>
+            {filteredProducts.length}{' '}
+            {filteredProducts.length === 1
+              ? 'produto'
+              : 'produtos'}
+          </Text>
+
+        </View>
+
+        <TouchableOpacity
+          style={styles.filterButton}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="options-outline"
+            size={18}
+            color="#094F63"
+          />
+
+          <Text style={styles.filterText}>
+            Filtrar
+          </Text>
+        </TouchableOpacity>
+
       </View>
 
       {/* LISTA */}
 
       <FlatList
         data={filteredProducts}
+        numColumns={2}
 
         keyExtractor={(item, index) =>
           item?.id != null
@@ -395,6 +419,8 @@ export default function ProductsScreen() {
 
         renderItem={renderProduct}
 
+        columnWrapperStyle={styles.columnWrapper}
+
         contentContainerStyle={
           filteredProducts.length === 0
             ? styles.emptyList
@@ -404,16 +430,22 @@ export default function ProductsScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
 
-            <Ionicons
-              name="cube-outline"
-              size={55}
-              color="#094F63"
-            />
+            <View style={styles.emptyIcon}>
+              <Ionicons
+                name="cube-outline"
+                size={45}
+                color="#094F63"
+              />
+            </View>
+
+            <Text style={styles.emptyTitle}>
+              Nenhum produto encontrado
+            </Text>
 
             <Text style={styles.emptyText}>
               {search.trim()
-                ? 'Nenhum produto encontrado para essa pesquisa.'
-                : 'Nenhum produto cadastrado.'}
+                ? 'Tente pesquisar por outro nome, categoria ou localização.'
+                : 'Ainda não existem produtos cadastrados.'}
             </Text>
 
           </View>
@@ -424,21 +456,21 @@ export default function ProductsScreen() {
   );
 }
 
-// ======================================================
-// ESTILOS
-// ======================================================
-
 const styles = StyleSheet.create({
 
   // ======================================================
-  // CONTAINER
+  // TELA
   // ======================================================
 
   container: {
     flex: 1,
     backgroundColor: '#F1F5F9',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
+
+  // ======================================================
+  // LOADING
+  // ======================================================
 
   loadingContainer: {
     flex: 1,
@@ -447,9 +479,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  loadingCircle: {
+    width: 65,
+    height: 65,
+    borderRadius: 33,
+    backgroundColor: '#E2F0F4',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   loadingText: {
     color: '#64748B',
-    fontSize: 16,
+    fontSize: 14,
     marginTop: 15,
   },
 
@@ -458,40 +499,45 @@ const styles = StyleSheet.create({
   // ======================================================
 
   header: {
-    marginTop: 55,
+    marginTop: 52,
+    marginBottom: 18,
+
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 25,
+  },
+
+  greeting: {
+    color: '#64748B',
+    fontSize: 13,
+    marginBottom: 2,
   },
 
   title: {
     color: '#094F63',
-    fontSize: 32,
+    fontSize: 29,
     fontWeight: 'bold',
   },
 
-  subtitle: {
-    color: '#64748B',
-    marginTop: 5,
-    fontSize: 15,
-  },
+  refreshButton: {
+    width: 46,
+    height: 46,
 
-  filterButton: {
-    width: 52,
-    height: 52,
+    borderRadius: 15,
+
     backgroundColor: '#094F63',
-    borderRadius: 17,
+
     justifyContent: 'center',
     alignItems: 'center',
 
     shadowColor: '#094F63',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 3,
     },
     shadowOpacity: 0.18,
-    shadowRadius: 7,
+    shadowRadius: 5,
+
     elevation: 4,
   },
 
@@ -500,32 +546,95 @@ const styles = StyleSheet.create({
   // ======================================================
 
   searchContainer: {
+    height: 52,
+
     backgroundColor: '#FFFFFF',
-    height: 60,
-    borderRadius: 19,
+
+    borderRadius: 16,
+
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
-    marginBottom: 22,
+
+    paddingHorizontal: 15,
 
     borderWidth: 1,
     borderColor: '#E2E8F0',
 
-    shadowColor: '#000000',
+    marginBottom: 20,
+
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.03,
     shadowRadius: 5,
-    elevation: 2,
+
+    elevation: 1,
   },
 
   searchInput: {
     flex: 1,
-    marginLeft: 10,
+
+    marginLeft: 9,
+
     color: '#0F172A',
-    fontSize: 16,
+
+    fontSize: 14,
+  },
+
+  // ======================================================
+  // CABEÇALHO DA LISTA
+  // ======================================================
+
+  listHeader: {
+    flexDirection: 'row',
+
+    justifyContent: 'space-between',
+
+    alignItems: 'center',
+
+    marginBottom: 14,
+  },
+
+  sectionTitle: {
+    color: '#0F172A',
+
+    fontSize: 18,
+
+    fontWeight: 'bold',
+  },
+
+  productCount: {
+    color: '#94A3B8',
+
+    fontSize: 11,
+
+    marginTop: 3,
+  },
+
+  filterButton: {
+    height: 36,
+
+    paddingHorizontal: 12,
+
+    borderRadius: 11,
+
+    backgroundColor: '#E2F0F4',
+
+    flexDirection: 'row',
+
+    alignItems: 'center',
+
+    gap: 5,
+  },
+
+  filterText: {
+    color: '#094F63',
+
+    fontSize: 12,
+
+    fontWeight: '600',
   },
 
   // ======================================================
@@ -533,7 +642,11 @@ const styles = StyleSheet.create({
   // ======================================================
 
   list: {
-    paddingBottom: 40,
+    paddingBottom: 30,
+  },
+
+  columnWrapper: {
+    justifyContent: 'space-between',
   },
 
   emptyList: {
@@ -545,19 +658,28 @@ const styles = StyleSheet.create({
   // ======================================================
 
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 26,
-    overflow: 'hidden',
-    marginBottom: 20,
+    width: '48.2%',
 
-    shadowColor: '#000000',
+    backgroundColor: '#FFFFFF',
+
+    borderRadius: 18,
+
+    marginBottom: 14,
+
+    overflow: 'hidden',
+
+    shadowColor: '#000',
+
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 3,
     },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+
+    shadowOpacity: 0.06,
+
+    shadowRadius: 6,
+
+    elevation: 3,
   },
 
   // ======================================================
@@ -566,8 +688,11 @@ const styles = StyleSheet.create({
 
   imageContainer: {
     width: '100%',
-    height: 210,
+    height: 145,
+
     backgroundColor: '#E2F0F4',
+
+    position: 'relative',
   },
 
   image: {
@@ -577,135 +702,203 @@ const styles = StyleSheet.create({
 
   noImage: {
     flex: 1,
-    backgroundColor: '#E2F0F4',
+
     justifyContent: 'center',
+
     alignItems: 'center',
+
+    backgroundColor: '#E2F0F4',
   },
 
   noImageText: {
-    color: '#64748B',
-    fontSize: 14,
-    marginTop: 10,
-    fontWeight: '500',
+    color: '#94A3B8',
+
+    fontSize: 10,
+
+    marginTop: 5,
+  },
+
+  // ======================================================
+  // STATUS
+  // ======================================================
+
+  statusBadge: {
+    position: 'absolute',
+
+    left: 8,
+    bottom: 8,
+
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+
+    borderRadius: 8,
+
+    flexDirection: 'row',
+
+    alignItems: 'center',
+  },
+
+  statusAvailable: {
+    backgroundColor: '#E2F0F4',
+  },
+
+  statusLow: {
+    backgroundColor: '#FEE2E2',
+  },
+
+  statusDot: {
+    width: 6,
+    height: 6,
+
+    borderRadius: 3,
+
+    marginRight: 5,
+  },
+
+  dotAvailable: {
+    backgroundColor: '#0F766E',
+  },
+
+  dotLow: {
+    backgroundColor: '#DC2626',
+  },
+
+  statusText: {
+    fontSize: 9,
+
+    fontWeight: 'bold',
+  },
+
+  statusTextAvailable: {
+    color: '#0F766E',
+  },
+
+  statusTextLow: {
+    color: '#DC2626',
   },
 
   // ======================================================
   // CONTEÚDO
   // ======================================================
 
-  content: {
-    padding: 20,
+  cardContent: {
+    padding: 12,
   },
 
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
+  category: {
+    color: '#94A3B8',
 
-  productInfo: {
-    flex: 1,
-    paddingRight: 10,
+    fontSize: 9,
+
+    fontWeight: '600',
+
+    textTransform: 'uppercase',
+
+    marginBottom: 4,
   },
 
   name: {
     color: '#0F172A',
-    fontSize: 21,
+
+    fontSize: 14,
+
     fontWeight: 'bold',
+
+    lineHeight: 18,
+
+    minHeight: 36,
   },
 
-  category: {
-    color: '#64748B',
-    marginTop: 6,
-    fontSize: 14,
-    fontWeight: '500',
+  // ======================================================
+  // PREÇO
+  // ======================================================
+
+  price: {
+    color: '#094F63',
+
+    fontSize: 17,
+
+    fontWeight: 'bold',
+
+    marginTop: 8,
   },
 
   // ======================================================
   // ESTOQUE
   // ======================================================
 
-  stockBadge: {
-    minWidth: 48,
-    height: 48,
-    borderRadius: 15,
-    justifyContent: 'center',
+  stockRow: {
+    flexDirection: 'row',
+
+    justifyContent: 'space-between',
+
     alignItems: 'center',
-    paddingHorizontal: 12,
+
+    marginTop: 9,
+  },
+
+  stockInfo: {
+    flexDirection: 'row',
+
+    alignItems: 'center',
+
+    flex: 1,
   },
 
   stockText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+    color: '#64748B',
 
-  // ======================================================
-  // INFORMAÇÕES
-  // ======================================================
+    fontSize: 9,
 
-  infoRow: {
-    flexDirection: 'row',
-    marginTop: 18,
-    gap: 10,
-  },
+    marginLeft: 4,
 
-  infoCard: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 14,
-    paddingHorizontal: 13,
-    paddingVertical: 11,
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-
-  infoText: {
-    color: '#475569',
-    marginLeft: 8,
-    fontSize: 13,
-    flexShrink: 1,
     fontWeight: '500',
   },
 
-  // ======================================================
-  // DETALHES
-  // ======================================================
+  minimumContainer: {
+    backgroundColor: '#F1F5F9',
 
-  detailsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 18,
+    paddingHorizontal: 5,
+
+    paddingVertical: 3,
+
+    borderRadius: 5,
   },
 
-  detailText: {
-    color: '#64748B',
-    fontSize: 13,
+  minimumText: {
+    color: '#94A3B8',
+
+    fontSize: 8,
+
+    fontWeight: '600',
   },
 
   // ======================================================
-  // PREÇO / STATUS
+  // LOCALIZAÇÃO
   // ======================================================
 
-  bottomRow: {
-    marginTop: 20,
+  locationRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+
     alignItems: 'center',
+
+    marginTop: 8,
+
+    paddingTop: 7,
+
+    borderTopWidth: 1,
+
+    borderTopColor: '#F1F5F9',
   },
 
-  price: {
-    color: '#094F63',
-    fontSize: 25,
-    fontWeight: 'bold',
-  },
+  locationText: {
+    color: '#94A3B8',
 
-  stockStatus: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 9,
+
+    marginLeft: 3,
+
+    flex: 1,
   },
 
   // ======================================================
@@ -713,17 +906,49 @@ const styles = StyleSheet.create({
   // ======================================================
 
   emptyContainer: {
-    alignItems: 'center',
+    flex: 1,
+
     justifyContent: 'center',
-    paddingTop: 80,
+
+    alignItems: 'center',
+
+    paddingHorizontal: 30,
+  },
+
+  emptyIcon: {
+    width: 85,
+    height: 85,
+
+    borderRadius: 43,
+
+    backgroundColor: '#E2F0F4',
+
+    justifyContent: 'center',
+    alignItems: 'center',
+
+    marginBottom: 18,
+  },
+
+  emptyTitle: {
+    color: '#0F172A',
+
+    fontSize: 17,
+
+    fontWeight: 'bold',
+
+    textAlign: 'center',
   },
 
   emptyText: {
     color: '#64748B',
-    fontSize: 16,
-    marginTop: 15,
+
+    fontSize: 13,
+
+    marginTop: 7,
+
     textAlign: 'center',
-    paddingHorizontal: 20,
+
+    lineHeight: 19,
   },
 
 });

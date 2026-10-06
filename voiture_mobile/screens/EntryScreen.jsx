@@ -30,7 +30,7 @@ export default function EntryScreen({ navigation }) {
 
   const [searchText, setSearchText] = useState('');
 
-<<<<<<< HEAD
+
   useEffect(() => {
 
   // CARREGAR PRODUTOS
@@ -62,7 +62,6 @@ export default function EntryScreen({ navigation }) {
     });
 
 }, []);
-=======
   // ======================================================
   // CARREGAR PRODUTOS E FORNECEDORES
   // ======================================================
@@ -71,7 +70,6 @@ export default function EntryScreen({ navigation }) {
     carregarProdutos();
     carregarFornecedores();
   }, []);
->>>>>>> 45e6b1f365683beb9f9df58452a9c60a7dc97712
 
   // ======================================================
   // PRODUTOS

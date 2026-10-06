@@ -48,7 +48,7 @@ export default function HomeScreen({ navigation }) {
           <Ionicons
             name="notifications-outline"
             size={24}
-            color="#094F63"
+            color="#fff"
           />
         </TouchableOpacity>
       </View>
@@ -210,35 +210,7 @@ export default function HomeScreen({ navigation }) {
         />
       </TouchableOpacity>
 
-      {/* ATIVIDADES RECENTES */}
-      <Text style={styles.sectionTitle}>
-        Atividades Recentes
-      </Text>
-
-      {(dashboardData.recentActivities || []).map((item) => (
-        <View
-          key={item.id}
-          style={styles.activityCard}
-        >
-          <Ionicons
-            name={
-              item.type === 'Entrada'
-                ? 'checkmark-circle'
-                : 'remove-circle'
-            }
-            size={22}
-            color={
-              item.type === 'Entrada'
-                ? '#16A34A'
-                : '#DC2626'
-            }
-          />
-
-          <Text style={styles.activityText}>
-            {item.type} de {item.quantity} {item.product}
-          </Text>
-        </View>
-      ))}
+      
 
       <View style={{ height: 40 }} />
     </ScrollView>
@@ -275,7 +247,7 @@ const styles = StyleSheet.create({
   notification: {
     width: 50,
     height: 50,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1E436A',
     borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
@@ -293,7 +265,7 @@ const styles = StyleSheet.create({
   /* CARD PRINCIPAL */
 
   balanceCard: {
-    backgroundColor: '#094F63',
+    backgroundColor: '#1E436A',
     borderRadius: 30,
     padding: 25,
     marginTop: 30,
@@ -401,7 +373,7 @@ const styles = StyleSheet.create({
   /* BOTÕES */
 
   actionButtonBlue: {
-    backgroundColor: '#094F63',
+    backgroundColor: '#1E436A',
     borderRadius: 24,
     padding: 20,
     marginBottom: 15,
@@ -421,7 +393,7 @@ const styles = StyleSheet.create({
   },
 
   actionButtonGreen: {
-    backgroundColor: '#094F63',
+    backgroundColor: '#144f17',
     borderRadius: 24,
     padding: 20,
     marginBottom: 15,
@@ -441,7 +413,7 @@ const styles = StyleSheet.create({
   },
 
   actionButtonRed: {
-    backgroundColor: '#094F63',
+    backgroundColor: '#630909',
     borderRadius: 24,
     padding: 20,
     marginBottom: 15,
