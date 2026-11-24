@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import QRCode from 'react-native-qrcode-svg';
 
 import {
   View,
@@ -9,17 +10,50 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Modal,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import api from '../src/services/api';
+import { useTheme } from '../src/context/ThemeContext';
 
 export default function ProductsScreen() {
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProduto, setSelectedProduto] = useState(null);
+
+  // ======================================================
+  // TEMA
+  // ======================================================
+
+  const { darkMode } = useTheme();
+
+  const colors = darkMode
+    ? {
+      background: '#0F172A',
+      card: '#1E293B',
+      text: '#F8FAFC',
+      secondary: '#94A3B8',
+      accent: '#67C3D2',
+      border: '#334155',
+      soft: '#253548',
+      input: '#1E293B',
+      muted: '#CBD5E1',
+    }
+    : {
+      background: '#F1F5F9',
+      card: '#FFFFFF',
+      text: '#0F172A',
+      secondary: '#94A3B8',
+      accent: '#094F63',
+      border: '#E2E8F0',
+      soft: '#E2F0F4',
+      input: '#FFFFFF',
+      muted: '#64748B',
+    };
 
   // ======================================================
   // BUSCAR PRODUTOS
@@ -38,19 +72,9 @@ export default function ProductsScreen() {
       if (Array.isArray(response.data)) {
         setProducts(response.data);
       } else {
-        console.log(
-          'A API não retornou uma lista de produtos:',
-          response.data
-        );
-
         setProducts([]);
       }
     } catch (error) {
-      console.log(
-        'Erro ao buscar produtos:',
-        error.response?.data || error.message
-      );
-
       setProducts([]);
     } finally {
       setLoading(false);
@@ -122,11 +146,11 @@ export default function ProductsScreen() {
     const estoqueBaixo = estoque <= estoqueMinimo;
 
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
 
         {/* IMAGEM */}
 
-        <View style={styles.imageContainer}>
+        <View style={[styles.imageContainer, { backgroundColor: colors.soft }]}>
 
           {possuiImagem ? (
             <Image
@@ -135,28 +159,37 @@ export default function ProductsScreen() {
               }}
               style={styles.image}
               resizeMode="cover"
-              onError={(error) => {
-                console.log(
-                  `Erro ao carregar imagem do produto ${item.id}:`,
-                  error.nativeEvent.error
-                );
-              }}
             />
           ) : (
-            <View style={styles.noImage}>
+            <View style={[styles.noImage, { backgroundColor: colors.soft }]}>
               <Ionicons
                 name="image-outline"
                 size={40}
-                color="#94A3B8"
+                color={colors.secondary}
               />
 
-              <Text style={styles.noImageText}>
+              <Text style={[styles.noImageText, { color: colors.secondary }]}>
                 Sem imagem
               </Text>
             </View>
           )}
 
-        
+          {/* BOTÃO QR CODE */}
+
+          <TouchableOpacity
+            style={styles.qrButton}
+            activeOpacity={0.8}
+            onPress={() =>
+              setSelectedProduto({
+                id: item.id,
+                code: String(item.id),
+                name: item.produto_nome,
+              })
+            }
+          >
+            <Ionicons name="qr-code-outline" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+
           {/* STATUS */}
 
           <View
@@ -197,7 +230,7 @@ export default function ProductsScreen() {
         <View style={styles.cardContent}>
 
           <Text
-            style={styles.category}
+            style={[styles.category, { color: colors.secondary }]}
             numberOfLines={1}
           >
             {item?.produto_categoria ||
@@ -205,7 +238,7 @@ export default function ProductsScreen() {
           </Text>
 
           <Text
-            style={styles.name}
+            style={[styles.name, { color: colors.text }]}
             numberOfLines={2}
           >
             {item?.produto_nome ||
@@ -214,7 +247,7 @@ export default function ProductsScreen() {
 
           {/* PREÇO */}
 
-          <Text style={styles.price}>
+          <Text style={[styles.price, { color: colors.accent }]}>
             R${' '}
             {preco
               .toFixed(2)
@@ -230,17 +263,17 @@ export default function ProductsScreen() {
               <Ionicons
                 name="cube-outline"
                 size={15}
-                color="#094F63"
+                color={colors.accent}
               />
 
-              <Text style={styles.stockText}>
+              <Text style={[styles.stockText, { color: colors.muted }]}>
                 {estoque} em estoque
               </Text>
 
             </View>
 
-            <View style={styles.minimumContainer}>
-              <Text style={styles.minimumText}>
+            <View style={[styles.minimumContainer, { backgroundColor: colors.soft }]}>
+              <Text style={[styles.minimumText, { color: colors.secondary }]}>
                 Mín. {estoqueMinimo}
               </Text>
             </View>
@@ -249,16 +282,16 @@ export default function ProductsScreen() {
 
           {/* LOCALIZAÇÃO */}
 
-          <View style={styles.locationRow}>
+          <View style={[styles.locationRow, { borderTopColor: colors.border }]}>
 
             <Ionicons
               name="location-outline"
               size={14}
-              color="#94A3B8"
+              color={colors.secondary}
             />
 
             <Text
-              style={styles.locationText}
+              style={[styles.locationText, { color: colors.secondary }]}
               numberOfLines={1}
             >
               {item?.produto_localizacao ||
@@ -279,16 +312,16 @@ export default function ProductsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
 
-        <View style={styles.loadingCircle}>
+        <View style={[styles.loadingCircle, { backgroundColor: colors.soft }]}>
           <ActivityIndicator
             size="large"
-            color="#094F63"
+            color={colors.accent}
           />
         </View>
 
-        <Text style={styles.loadingText}>
+        <Text style={[styles.loadingText, { color: colors.muted }]}>
           Carregando produtos...
         </Text>
 
@@ -301,7 +334,7 @@ export default function ProductsScreen() {
   // ======================================================
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
 
       {/* HEADER */}
 
@@ -309,11 +342,11 @@ export default function ProductsScreen() {
 
         <View>
 
-          <Text style={styles.greeting}>
+          <Text style={[styles.greeting, { color: colors.secondary }]}>
             Estoque
           </Text>
 
-          <Text style={styles.title}>
+          <Text style={[styles.title, { color: colors.accent }]}>
             Produtos
           </Text>
 
@@ -335,18 +368,24 @@ export default function ProductsScreen() {
 
       {/* PESQUISA */}
 
-      <View style={styles.searchContainer}>
+      <View style={[
+        styles.searchContainer,
+        {
+          backgroundColor: colors.input,
+          borderColor: colors.border,
+        }
+      ]}>
 
         <Ionicons
           name="search-outline"
           size={20}
-          color="#94A3B8"
+          color={colors.secondary}
         />
 
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.text }]}
           placeholder="Pesquisar produtos..."
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={colors.secondary}
           value={search}
           onChangeText={setSearch}
           autoCapitalize="none"
@@ -360,7 +399,7 @@ export default function ProductsScreen() {
             <Ionicons
               name="close-circle"
               size={20}
-              color="#94A3B8"
+              color={colors.secondary}
             />
           </TouchableOpacity>
         )}
@@ -373,11 +412,11 @@ export default function ProductsScreen() {
 
         <View>
 
-          <Text style={styles.sectionTitle}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
             Seus produtos
           </Text>
 
-          <Text style={styles.productCount}>
+          <Text style={[styles.productCount, { color: colors.secondary }]}>
             {filteredProducts.length}{' '}
             {filteredProducts.length === 1
               ? 'produto'
@@ -385,21 +424,6 @@ export default function ProductsScreen() {
           </Text>
 
         </View>
-
-        <TouchableOpacity
-          style={styles.filterButton}
-          activeOpacity={0.8}
-        >
-          <Ionicons
-            name="options-outline"
-            size={18}
-            color="#094F63"
-          />
-
-          <Text style={styles.filterText}>
-            Filtrar
-          </Text>
-        </TouchableOpacity>
 
       </View>
 
@@ -430,19 +454,19 @@ export default function ProductsScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
 
-            <View style={styles.emptyIcon}>
+            <View style={[styles.emptyIcon, { backgroundColor: colors.soft }]}>
               <Ionicons
                 name="cube-outline"
                 size={45}
-                color="#094F63"
+                color={colors.accent}
               />
             </View>
 
-            <Text style={styles.emptyTitle}>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
               Nenhum produto encontrado
             </Text>
 
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>
               {search.trim()
                 ? 'Tente pesquisar por outro nome, categoria ou localização.'
                 : 'Ainda não existem produtos cadastrados.'}
@@ -451,6 +475,42 @@ export default function ProductsScreen() {
           </View>
         }
       />
+
+      {/* MODAL QR CODE */}
+
+      {selectedProduto && (
+        <Modal
+          transparent
+          visible
+          animationType="fade"
+          onRequestClose={() => setSelectedProduto(null)}
+        >
+          <View style={styles.qrModalBg}>
+            <View style={[styles.qrModalCard, { backgroundColor: colors.card }]}>
+
+              <Text style={[styles.qrModalTitle, { color: colors.text }]}>
+                {selectedProduto.name}
+              </Text>
+
+              <View style={styles.qrCodeContainer}>
+                <QRCode
+                  value={String(selectedProduto.code || selectedProduto.id)}
+                  size={240}
+                  color="#000"
+                  backgroundColor="#fff"
+                />
+              </View>
+
+              <TouchableOpacity onPress={() => setSelectedProduto(null)}>
+                <Text style={[styles.qrCloseText, { color: colors.accent }]}>
+                  Fechar
+                </Text>
+              </TouchableOpacity>
+
+            </View>
+          </View>
+        </Modal>
+      )}
 
     </View>
   );
@@ -501,7 +561,6 @@ const styles = StyleSheet.create({
   header: {
     marginTop: 52,
     marginBottom: 18,
-
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -522,14 +581,10 @@ const styles = StyleSheet.create({
   refreshButton: {
     width: 46,
     height: 46,
-
     borderRadius: 15,
-
     backgroundColor: '#094F63',
-
     justifyContent: 'center',
     alignItems: 'center',
-
     shadowColor: '#094F63',
     shadowOffset: {
       width: 0,
@@ -537,7 +592,6 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.18,
     shadowRadius: 5,
-
     elevation: 4,
   },
 
@@ -547,21 +601,14 @@ const styles = StyleSheet.create({
 
   searchContainer: {
     height: 52,
-
     backgroundColor: '#FFFFFF',
-
     borderRadius: 16,
-
     flexDirection: 'row',
     alignItems: 'center',
-
     paddingHorizontal: 15,
-
     borderWidth: 1,
     borderColor: '#E2E8F0',
-
     marginBottom: 20,
-
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -569,17 +616,13 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.03,
     shadowRadius: 5,
-
     elevation: 1,
   },
 
   searchInput: {
     flex: 1,
-
     marginLeft: 9,
-
     color: '#0F172A',
-
     fontSize: 14,
   },
 
@@ -589,51 +632,36 @@ const styles = StyleSheet.create({
 
   listHeader: {
     flexDirection: 'row',
-
     justifyContent: 'space-between',
-
     alignItems: 'center',
-
     marginBottom: 14,
   },
 
   sectionTitle: {
     color: '#0F172A',
-
     fontSize: 18,
-
     fontWeight: 'bold',
   },
 
   productCount: {
     color: '#94A3B8',
-
     fontSize: 11,
-
     marginTop: 3,
   },
 
   filterButton: {
     height: 36,
-
     paddingHorizontal: 12,
-
     borderRadius: 11,
-
     backgroundColor: '#E2F0F4',
-
     flexDirection: 'row',
-
     alignItems: 'center',
-
     gap: 5,
   },
 
   filterText: {
     color: '#094F63',
-
     fontSize: 12,
-
     fontWeight: '600',
   },
 
@@ -659,26 +687,17 @@ const styles = StyleSheet.create({
 
   card: {
     width: '48.2%',
-
     backgroundColor: '#FFFFFF',
-
     borderRadius: 18,
-
     marginBottom: 14,
-
     overflow: 'hidden',
-
     shadowColor: '#000',
-
     shadowOffset: {
       width: 0,
       height: 3,
     },
-
     shadowOpacity: 0.06,
-
     shadowRadius: 6,
-
     elevation: 3,
   },
 
@@ -689,9 +708,7 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: '100%',
     height: 145,
-
     backgroundColor: '#E2F0F4',
-
     position: 'relative',
   },
 
@@ -702,39 +719,39 @@ const styles = StyleSheet.create({
 
   noImage: {
     flex: 1,
-
     justifyContent: 'center',
-
     alignItems: 'center',
-
     backgroundColor: '#E2F0F4',
   },
 
   noImageText: {
     color: '#94A3B8',
-
     fontSize: 10,
-
     marginTop: 5,
   },
-
+  qrButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#094F63',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   // ======================================================
   // STATUS
   // ======================================================
 
   statusBadge: {
     position: 'absolute',
-
     left: 8,
     bottom: 8,
-
     paddingHorizontal: 8,
     paddingVertical: 5,
-
     borderRadius: 8,
-
     flexDirection: 'row',
-
     alignItems: 'center',
   },
 
@@ -749,9 +766,7 @@ const styles = StyleSheet.create({
   statusDot: {
     width: 6,
     height: 6,
-
     borderRadius: 3,
-
     marginRight: 5,
   },
 
@@ -765,7 +780,6 @@ const styles = StyleSheet.create({
 
   statusText: {
     fontSize: 9,
-
     fontWeight: 'bold',
   },
 
@@ -787,25 +801,17 @@ const styles = StyleSheet.create({
 
   category: {
     color: '#94A3B8',
-
     fontSize: 9,
-
     fontWeight: '600',
-
     textTransform: 'uppercase',
-
     marginBottom: 4,
   },
 
   name: {
     color: '#0F172A',
-
     fontSize: 14,
-
     fontWeight: 'bold',
-
     lineHeight: 18,
-
     minHeight: 36,
   },
 
@@ -815,11 +821,8 @@ const styles = StyleSheet.create({
 
   price: {
     color: '#094F63',
-
     fontSize: 17,
-
     fontWeight: 'bold',
-
     marginTop: 8,
   },
 
@@ -829,47 +832,34 @@ const styles = StyleSheet.create({
 
   stockRow: {
     flexDirection: 'row',
-
     justifyContent: 'space-between',
-
     alignItems: 'center',
-
     marginTop: 9,
   },
 
   stockInfo: {
     flexDirection: 'row',
-
     alignItems: 'center',
-
     flex: 1,
   },
 
   stockText: {
     color: '#64748B',
-
     fontSize: 9,
-
     marginLeft: 4,
-
     fontWeight: '500',
   },
 
   minimumContainer: {
     backgroundColor: '#F1F5F9',
-
     paddingHorizontal: 5,
-
     paddingVertical: 3,
-
     borderRadius: 5,
   },
 
   minimumText: {
     color: '#94A3B8',
-
     fontSize: 8,
-
     fontWeight: '600',
   },
 
@@ -879,25 +869,17 @@ const styles = StyleSheet.create({
 
   locationRow: {
     flexDirection: 'row',
-
     alignItems: 'center',
-
     marginTop: 8,
-
     paddingTop: 7,
-
     borderTopWidth: 1,
-
     borderTopColor: '#F1F5F9',
   },
 
   locationText: {
     color: '#94A3B8',
-
     fontSize: 9,
-
     marginLeft: 3,
-
     flex: 1,
   },
 
@@ -907,48 +889,71 @@ const styles = StyleSheet.create({
 
   emptyContainer: {
     flex: 1,
-
     justifyContent: 'center',
-
     alignItems: 'center',
-
     paddingHorizontal: 30,
   },
 
   emptyIcon: {
     width: 85,
     height: 85,
-
     borderRadius: 43,
-
     backgroundColor: '#E2F0F4',
-
     justifyContent: 'center',
     alignItems: 'center',
-
     marginBottom: 18,
   },
 
   emptyTitle: {
     color: '#0F172A',
-
     fontSize: 17,
-
     fontWeight: 'bold',
-
     textAlign: 'center',
   },
 
   emptyText: {
     color: '#64748B',
-
     fontSize: 13,
-
     marginTop: 7,
-
     textAlign: 'center',
-
     lineHeight: 19,
+  },
+
+  // ======================================================
+  // MODAL QR CODE
+  // ======================================================
+
+  qrModalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  qrModalCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 25,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+
+  qrModalTitle: {
+    color: '#0F172A',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+
+  qrCodeContainer: {
+    padding: 15,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginTop: 15,
+  },
+
+  qrCloseText: {
+    color: '#3B82F6',
+    marginTop: 20,
+    fontWeight: 'bold',
   },
 
 });

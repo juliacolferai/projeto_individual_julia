@@ -1,4 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
+import QRCodeScannerModal from '../src/components/QRCodeScannerModal';
 
 import {
   View,
@@ -14,6 +16,7 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 import api from '../src/services/api';
+import { useTheme } from '../src/context/ThemeContext';
 
 export default function EntryScreen({ navigation }) {
 
@@ -30,46 +33,84 @@ export default function EntryScreen({ navigation }) {
 
   const [searchText, setSearchText] = useState('');
 
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
-  useEffect(() => {
+  // ======================================================
+  // TEMA CLARO E ESCURO
+  // ======================================================
 
-  // CARREGAR PRODUTOS
-  api
-    .get('/api/listagem_produto')
-    .then((res) => {
-      console.log("PRODUTOS:", res.data);
-      setProdutos(res.data);
-    })
-    .catch((error) => {
-      console.log(
-        "ERRO PRODUTOS:",
-        error.response?.data || error.message
-      );
-    });
+  const { darkMode } = useTheme();
 
-  // CARREGAR FORNECEDORES
-  api
-    .get('/api/listagem_fornecedor')
-    .then((res) => {
-      console.log("FORNECEDORES:", res.data);
-      setFornecedores(res.data);
-    })
-    .catch((error) => {
-      console.log(
-        "ERRO FORNECEDORES:",
-        error.response?.data || error.message
-      );
-    });
+  const theme = darkMode
+    ? {
+        background: '#0B1018',
+        card: '#171E2A',
+        cardSecondary: '#202B38',
+        text: '#F4F7FB',
+        secondary: '#94A3B8',
+        border: '#303B49',
+        accent: '#42C8DC',
+        iconBackground: '#193A45',
+        input: '#171E2A',
+        green: '#2DD4BF',
+        modalOverlay: 'rgba(0, 0, 0, 0.75)',
+      }
+    : {
+        background: '#FFFFFF',
+        card: '#FFFFFF',
+        cardSecondary: '#F0F5F8',
+        text: '#0F172A',
+        secondary: '#64748B',
+        border: '#E2E8F0',
+        accent: '#094F63',
+        iconBackground: '#E2F0F4',
+        input: '#FFFFFF',
+        green: '#0F766E',
+        modalOverlay: 'rgba(15, 23, 42, 0.55)',
+      };
 
-}, []);
   // ======================================================
   // CARREGAR PRODUTOS E FORNECEDORES
   // ======================================================
 
   useEffect(() => {
+    api
+      .get('/api/listagem_produto')
+      .then((res) => {
+
+        setProdutos(res.data);
+      })
+      .catch((error) => {
+      });
+
+    api
+      .get('/api/listagem_fornecedor')
+      .then((res) => {
+        setFornecedores(res.data);
+      })
+      .catch((error) => {
+      });
+  }, []);
+
+  useEffect(() => {
     carregarProdutos();
     carregarFornecedores();
   }, []);
+
+  // ======================================================
+  // LEITURA DO QR CODE
+  // ======================================================
+
+  const handleReadQRCode = async (data) => {
+    setIsScannerOpen(false);
+
+    try {
+      const response = await api.get(`/api/produtos/code/${data}`);
+      setSelectedProduct(response.data);
+    } catch (error) {
+      Alert.alert('Erro', 'Produto não encontrado no banco.');
+    }
+  };
 
   // ======================================================
   // PRODUTOS
@@ -79,12 +120,6 @@ export default function EntryScreen({ navigation }) {
     try {
       const response = await api.get('/api/listagem_produto');
 
-      console.log('========== PRODUTOS ==========');
-      console.log('STATUS:', response.status);
-      console.log('DATA:', response.data);
-      console.log('É ARRAY?', Array.isArray(response.data));
-      console.log('==============================');
-
       if (Array.isArray(response.data)) {
         setProdutos(response.data);
       } else {
@@ -92,11 +127,6 @@ export default function EntryScreen({ navigation }) {
       }
 
     } catch (error) {
-      console.log('========== ERRO PRODUTOS ==========');
-      console.log('STATUS:', error.response?.status);
-      console.log('DATA:', error.response?.data);
-      console.log('MENSAGEM:', error.message);
-      console.log('===================================');
 
       Alert.alert(
         'Erro',
@@ -113,17 +143,8 @@ export default function EntryScreen({ navigation }) {
     try {
       const response = await api.get('/api/listagem_fornecedor');
 
-      console.log('========== FORNECEDORES ==========');
-      console.log('STATUS:', response.status);
-      console.log('DATA:', response.data);
-      console.log('É ARRAY?', Array.isArray(response.data));
-
       if (Array.isArray(response.data)) {
 
-        console.log(
-          'QUANTIDADE DE FORNECEDORES:',
-          response.data.length
-        );
 
         response.data.forEach((fornecedor, index) => {
           console.log(
@@ -136,22 +157,11 @@ export default function EntryScreen({ navigation }) {
 
       } else {
 
-        console.log(
-          'A resposta de fornecedores NÃO é um array.'
-        );
-
         setFornecedores([]);
       }
 
-      console.log('==================================');
 
     } catch (error) {
-
-      console.log('========== ERRO FORNECEDORES ==========');
-      console.log('STATUS:', error.response?.status);
-      console.log('DATA:', error.response?.data);
-      console.log('MENSAGEM:', error.message);
-      console.log('========================================');
 
       setFornecedores([]);
 
@@ -217,38 +227,22 @@ export default function EntryScreen({ navigation }) {
     const qtyNum = Number(quantity);
 
     if (!selectedProduct) {
-      Alert.alert(
-        'Erro',
-        'Selecione um produto.'
-      );
+      Alert.alert('Erro', 'Selecione um produto.');
       return;
     }
 
     if (!selectedFornecedor) {
-      Alert.alert(
-        'Erro',
-        'Selecione um fornecedor.'
-      );
+      Alert.alert('Erro', 'Selecione um fornecedor.');
       return;
     }
 
     if (!quantity || isNaN(qtyNum) || qtyNum <= 0) {
-      Alert.alert(
-        'Erro',
-        'Insira uma quantidade válida.'
-      );
+      Alert.alert('Erro', 'Insira uma quantidade válida.');
       return;
     }
 
     try {
 
-      console.log('========== ENTRADA ==========');
-
-      console.log({
-        produto_id: selectedProduct.id,
-        fornecedor_id: selectedFornecedor.id,
-        quantidade: qtyNum,
-      });
 
       const response = await api.post(
         '/api/entrada_rapida',
@@ -258,9 +252,6 @@ export default function EntryScreen({ navigation }) {
           quantidade: qtyNum,
         }
       );
-
-      console.log('STATUS:', response.status);
-      console.log('RESPOSTA:', response.data);
 
       const estoqueAtualizado =
         response.data.estoque_restante;
@@ -275,8 +266,7 @@ export default function EntryScreen({ navigation }) {
           produto.id === selectedProduct.id
             ? {
                 ...produto,
-                estoque_quantidade:
-                  estoqueAtualizado,
+                estoque_quantidade: estoqueAtualizado,
               }
             : produto
         )
@@ -287,7 +277,7 @@ export default function EntryScreen({ navigation }) {
       Alert.alert(
         'Sucesso',
         response.data.mensagem ||
-          'Entrada realizada com sucesso!',
+        'Entrada realizada com sucesso!',
         [
           {
             text: 'OK',
@@ -298,15 +288,10 @@ export default function EntryScreen({ navigation }) {
 
     } catch (error) {
 
-      console.log(
-        'ERRO NA ENTRADA:',
-        error.response?.data || error
-      );
-
       Alert.alert(
         'Erro',
         error.response?.data?.erro ||
-          'Erro ao registrar entrada.'
+        'Erro ao registrar entrada.'
       );
     }
   };
@@ -317,7 +302,10 @@ export default function EntryScreen({ navigation }) {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[
+        styles.container,
+        { backgroundColor: theme.background },
+      ]}
       showsVerticalScrollIndicator={false}
     >
 
@@ -325,11 +313,11 @@ export default function EntryScreen({ navigation }) {
 
       <View style={styles.header}>
 
-        <Text style={styles.title}>
+        <Text style={[styles.title, { color: theme.accent }]}>
           Entrada de Estoque
         </Text>
 
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, { color: theme.secondary }]}>
           Registre a entrada de produtos
         </Text>
 
@@ -337,115 +325,106 @@ export default function EntryScreen({ navigation }) {
 
       {/* PRODUTO */}
 
-      <Text style={styles.sectionTitle}>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>
         Produto
       </Text>
 
       <TouchableOpacity
-        style={styles.selectButton}
-        activeOpacity={0.85}
-        onPress={openProductModal}
+        style={styles.qrButton}
+        onPress={() => setIsScannerOpen(true)}
       >
+        <View style={styles.qrContent}>
+          <Ionicons name="qr-code-outline" size={32} color="#FFFFFF" />
 
-        <View style={styles.selectIcon}>
-
-          <Ionicons
-            name="cube-outline"
-            size={24}
-            color="#094F63"
-          />
-
+          <View>
+            <Text style={styles.qrTitle}>Ler QR Code</Text>
+            <Text style={styles.qrSubtitle}>
+              Escanear produto para entrada
+            </Text>
+          </View>
         </View>
 
-        <Text
-          style={styles.selectText}
-          numberOfLines={1}
-        >
-
-          {selectedProduct
-            ? selectedProduct.produto_nome
-            : 'Selecionar Produto'}
-
-        </Text>
-
-        <Ionicons
-          name="chevron-down"
-          size={21}
-          color="#64748B"
-        />
-
+        <Ionicons name="chevron-forward" size={22} color="#FFFFFF" />
       </TouchableOpacity>
 
       {/* PRODUTO SELECIONADO */}
 
       {selectedProduct && (
+        <View style={[
+          styles.productCard,
+          {
+            backgroundColor: theme.card,
+            borderLeftColor: theme.accent,
+          },
+        ]}>
 
-        <View style={styles.productCard}>
-
-          <View style={styles.productIcon}>
-
+          <View style={[
+            styles.productIcon,
+            { backgroundColor: theme.iconBackground },
+          ]}>
             <Ionicons
               name="cube"
               size={28}
-              color="#094F63"
+              color={theme.accent}
             />
-
           </View>
 
           <View style={styles.productInfo}>
-
-            <Text style={styles.productName}>
+            <Text style={[styles.productName, { color: theme.text }]}>
               {selectedProduct.produto_nome}
             </Text>
 
-            <Text style={styles.stock}>
+            <Text style={[styles.stock, { color: theme.green }]}>
               Estoque Atual:{' '}
               {selectedProduct.estoque_quantidade}
             </Text>
-
           </View>
 
         </View>
-
       )}
 
       {/* FORNECEDOR */}
 
-      <Text style={styles.sectionTitle}>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>
         Fornecedor
       </Text>
 
       <TouchableOpacity
-        style={styles.selectButton}
+        style={[
+          styles.selectButton,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+          },
+        ]}
         activeOpacity={0.85}
         onPress={openFornecedorModal}
       >
 
-        <View style={styles.selectIcon}>
-
+        <View style={[
+          styles.selectIcon,
+          { backgroundColor: theme.iconBackground },
+        ]}>
           <Ionicons
             name="business-outline"
             size={24}
-            color="#094F63"
+            color={theme.accent}
           />
-
         </View>
 
         <Text
-          style={styles.selectText}
+          style={[styles.selectText, { color: theme.text }]}
           numberOfLines={1}
         >
-
           {selectedFornecedor
             ? selectedFornecedor.fornecedor_nome
             : 'Selecionar Fornecedor'}
-
         </Text>
 
         <Ionicons
           name="chevron-down"
           size={21}
-          color="#64748B"
+          color={theme.secondary}
         />
 
       </TouchableOpacity>
@@ -453,58 +432,66 @@ export default function EntryScreen({ navigation }) {
       {/* FORNECEDOR SELECIONADO */}
 
       {selectedFornecedor && (
+        <View style={[
+          styles.productCard,
+          {
+            backgroundColor: theme.card,
+            borderLeftColor: theme.accent,
+          },
+        ]}>
 
-        <View style={styles.productCard}>
-
-          <View style={styles.productIcon}>
-
+          <View style={[
+            styles.productIcon,
+            { backgroundColor: theme.iconBackground },
+          ]}>
             <Ionicons
               name="business"
               size={28}
-              color="#094F63"
+              color={theme.accent}
             />
-
           </View>
 
           <View style={styles.productInfo}>
 
-            <Text style={styles.productName}>
+            <Text style={[styles.productName, { color: theme.text }]}>
               {selectedFornecedor.fornecedor_nome}
             </Text>
 
             {selectedFornecedor.fornecedor_cnpj && (
-
-              <Text style={styles.stock}>
+              <Text style={[styles.stock, { color: theme.green }]}>
                 CNPJ:{' '}
                 {selectedFornecedor.fornecedor_cnpj}
               </Text>
-
             )}
 
           </View>
-
         </View>
-
       )}
 
       {/* QUANTIDADE */}
 
-      <Text style={styles.sectionTitle}>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>
         Quantidade de Entrada
       </Text>
 
-      <View style={styles.inputContainer}>
+      <View style={[
+        styles.inputContainer,
+        {
+          backgroundColor: theme.card,
+          borderColor: theme.border,
+        },
+      ]}>
 
         <Ionicons
           name="add-circle-outline"
           size={23}
-          color="#094F63"
+          color={theme.accent}
         />
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: theme.text }]}
           placeholder="Digite a quantidade"
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={theme.secondary}
           keyboardType="numeric"
           value={quantity}
           onChangeText={setQuantity}
@@ -514,23 +501,27 @@ export default function EntryScreen({ navigation }) {
 
       {/* RESULTADO */}
 
-      <View style={styles.resultCard}>
+      <View style={[
+        styles.resultCard,
+        { backgroundColor: theme.card },
+      ]}>
 
-        <View style={styles.resultIcon}>
-
+        <View style={[
+          styles.resultIcon,
+          { backgroundColor: theme.iconBackground },
+        ]}>
           <Ionicons
             name="cube-outline"
             size={23}
-            color="#094F63"
+            color={theme.accent}
           />
-
         </View>
 
-        <Text style={styles.resultText}>
+        <Text style={[styles.resultText, { color: theme.secondary }]}>
           Novo Estoque
         </Text>
 
-        <Text style={styles.resultValue}>
+        <Text style={[styles.resultValue, { color: theme.accent }]}>
           {newStock}
         </Text>
 
@@ -566,49 +557,55 @@ export default function EntryScreen({ navigation }) {
         visible={productModalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() =>
-          setProductModalVisible(false)
-        }
+        onRequestClose={() => setProductModalVisible(false)}
       >
 
-        <View style={styles.modalOverlay}>
+        <View style={[
+          styles.modalOverlay,
+          { backgroundColor: theme.modalOverlay },
+        ]}>
 
-          <View style={styles.modalContent}>
+          <View style={[
+            styles.modalContent,
+            { backgroundColor: theme.background },
+          ]}>
 
             <View style={styles.modalHeader}>
 
-              <Text style={styles.modalTitle}>
+              <Text style={[styles.modalTitle, { color: theme.accent }]}>
                 Selecionar Produto
               </Text>
 
               <TouchableOpacity
-                onPress={() =>
-                  setProductModalVisible(false)
-                }
+                onPress={() => setProductModalVisible(false)}
               >
-
                 <Ionicons
                   name="close"
                   size={26}
-                  color="#64748B"
+                  color={theme.secondary}
                 />
-
               </TouchableOpacity>
 
             </View>
 
-            <View style={styles.searchContainer}>
+            <View style={[
+              styles.searchContainer,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+              },
+            ]}>
 
               <Ionicons
                 name="search"
                 size={21}
-                color="#94A3B8"
+                color={theme.secondary}
               />
 
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { color: theme.text }]}
                 placeholder="Buscar produto..."
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={theme.secondary}
                 value={searchText}
                 onChangeText={setSearchText}
               />
@@ -617,19 +614,20 @@ export default function EntryScreen({ navigation }) {
 
             <FlatList
               data={filteredProdutos}
-              keyExtractor={(item) =>
-                String(item.id)
-              }
+              keyExtractor={(item) => String(item.id)}
               showsVerticalScrollIndicator={false}
               ListEmptyComponent={
-                <Text style={styles.emptyText}>
+                <Text style={[styles.emptyText, { color: theme.secondary }]}>
                   Nenhum produto encontrado.
                 </Text>
               }
               renderItem={({ item }) => (
 
                 <TouchableOpacity
-                  style={styles.listItem}
+                  style={[
+                    styles.listItem,
+                    { backgroundColor: theme.card },
+                  ]}
                   activeOpacity={0.7}
                   onPress={() => {
                     setSelectedProduct(item);
@@ -638,23 +636,24 @@ export default function EntryScreen({ navigation }) {
                   }}
                 >
 
-                  <View style={styles.listIcon}>
-
+                  <View style={[
+                    styles.listIcon,
+                    { backgroundColor: theme.iconBackground },
+                  ]}>
                     <Ionicons
                       name="cube-outline"
                       size={21}
-                      color="#094F63"
+                      color={theme.accent}
                     />
-
                   </View>
 
                   <View style={styles.listInfo}>
 
-                    <Text style={styles.listItemText}>
+                    <Text style={[styles.listItemText, { color: theme.text }]}>
                       {item.produto_nome}
                     </Text>
 
-                    <Text style={styles.listItemSub}>
+                    <Text style={[styles.listItemSub, { color: theme.secondary }]}>
                       Estoque:{' '}
                       {item.estoque_quantidade}
                     </Text>
@@ -664,7 +663,7 @@ export default function EntryScreen({ navigation }) {
                   <Ionicons
                     name="chevron-forward"
                     size={20}
-                    color="#94A3B8"
+                    color={theme.secondary}
                   />
 
                 </TouchableOpacity>
@@ -674,21 +673,15 @@ export default function EntryScreen({ navigation }) {
 
             <TouchableOpacity
               style={styles.closeButton}
-              onPress={() =>
-                setProductModalVisible(false)
-              }
+              onPress={() => setProductModalVisible(false)}
             >
-
               <Text style={styles.closeButtonText}>
                 Fechar
               </Text>
-
             </TouchableOpacity>
 
           </View>
-
         </View>
-
       </Modal>
 
       {/* ==================================================
@@ -699,49 +692,55 @@ export default function EntryScreen({ navigation }) {
         visible={fornecedorModalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() =>
-          setFornecedorModalVisible(false)
-        }
+        onRequestClose={() => setFornecedorModalVisible(false)}
       >
 
-        <View style={styles.modalOverlay}>
+        <View style={[
+          styles.modalOverlay,
+          { backgroundColor: theme.modalOverlay },
+        ]}>
 
-          <View style={styles.modalContent}>
+          <View style={[
+            styles.modalContent,
+            { backgroundColor: theme.background },
+          ]}>
 
             <View style={styles.modalHeader}>
 
-              <Text style={styles.modalTitle}>
+              <Text style={[styles.modalTitle, { color: theme.accent }]}>
                 Selecionar Fornecedor
               </Text>
 
               <TouchableOpacity
-                onPress={() =>
-                  setFornecedorModalVisible(false)
-                }
+                onPress={() => setFornecedorModalVisible(false)}
               >
-
                 <Ionicons
                   name="close"
                   size={26}
-                  color="#64748B"
+                  color={theme.secondary}
                 />
-
               </TouchableOpacity>
 
             </View>
 
-            <View style={styles.searchContainer}>
+            <View style={[
+              styles.searchContainer,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+              },
+            ]}>
 
               <Ionicons
                 name="search"
                 size={21}
-                color="#94A3B8"
+                color={theme.secondary}
               />
 
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { color: theme.text }]}
                 placeholder="Buscar fornecedor..."
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={theme.secondary}
                 value={searchText}
                 onChangeText={setSearchText}
               />
@@ -750,19 +749,20 @@ export default function EntryScreen({ navigation }) {
 
             <FlatList
               data={filteredFornecedores}
-              keyExtractor={(item) =>
-                String(item.id)
-              }
+              keyExtractor={(item) => String(item.id)}
               showsVerticalScrollIndicator={false}
               ListEmptyComponent={
-                <Text style={styles.emptyText}>
+                <Text style={[styles.emptyText, { color: theme.secondary }]}>
                   Nenhum fornecedor encontrado.
                 </Text>
               }
               renderItem={({ item }) => (
 
                 <TouchableOpacity
-                  style={styles.listItem}
+                  style={[
+                    styles.listItem,
+                    { backgroundColor: theme.card },
+                  ]}
                   activeOpacity={0.7}
                   onPress={() => {
                     setSelectedFornecedor(item);
@@ -771,29 +771,28 @@ export default function EntryScreen({ navigation }) {
                   }}
                 >
 
-                  <View style={styles.listIcon}>
-
+                  <View style={[
+                    styles.listIcon,
+                    { backgroundColor: theme.iconBackground },
+                  ]}>
                     <Ionicons
                       name="business-outline"
                       size={21}
-                      color="#094F63"
+                      color={theme.accent}
                     />
-
                   </View>
 
                   <View style={styles.listInfo}>
 
-                    <Text style={styles.listItemText}>
+                    <Text style={[styles.listItemText, { color: theme.text }]}>
                       {item.fornecedor_nome}
                     </Text>
 
                     {item.fornecedor_cnpj && (
-
-                      <Text style={styles.listItemSub}>
+                      <Text style={[styles.listItemSub, { color: theme.secondary }]}>
                         CNPJ:{' '}
                         {item.fornecedor_cnpj}
                       </Text>
-
                     )}
 
                   </View>
@@ -801,7 +800,7 @@ export default function EntryScreen({ navigation }) {
                   <Ionicons
                     name="chevron-forward"
                     size={20}
-                    color="#94A3B8"
+                    color={theme.secondary}
                   />
 
                 </TouchableOpacity>
@@ -811,22 +810,24 @@ export default function EntryScreen({ navigation }) {
 
             <TouchableOpacity
               style={styles.closeButton}
-              onPress={() =>
-                setFornecedorModalVisible(false)
-              }
+              onPress={() => setFornecedorModalVisible(false)}
             >
-
               <Text style={styles.closeButtonText}>
                 Fechar
               </Text>
-
             </TouchableOpacity>
 
           </View>
-
         </View>
-
       </Modal>
+
+      {/* LEITOR QR CODE */}
+
+      <QRCodeScannerModal
+        visible={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onReadCode={handleReadQRCode}
+      />
 
     </ScrollView>
   );
@@ -840,7 +841,6 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
     paddingHorizontal: 20,
   },
 
@@ -850,19 +850,16 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    color: '#094F63',
     fontSize: 30,
     fontWeight: 'bold',
   },
 
   subtitle: {
-    color: '#64748B',
     marginTop: 5,
     fontSize: 15,
   },
 
   sectionTitle: {
-    color: '#0F172A',
     fontSize: 20,
     fontWeight: 'bold',
     marginTop: 30,
@@ -870,14 +867,12 @@ const styles = StyleSheet.create({
   },
 
   selectButton: {
-    backgroundColor: '#FFFFFF',
     height: 68,
     borderRadius: 20,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     shadowColor: '#000000',
     shadowOffset: {
       width: 0,
@@ -892,7 +887,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 13,
-    backgroundColor: '#E2F0F4',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -900,20 +894,17 @@ const styles = StyleSheet.create({
 
   selectText: {
     flex: 1,
-    color: '#0F172A',
     fontSize: 16,
     fontWeight: '600',
   },
 
   productCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 22,
     padding: 20,
     marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
     borderLeftWidth: 4,
-    borderLeftColor: '#094F63',
     shadowColor: '#000000',
     shadowOffset: {
       width: 0,
@@ -927,7 +918,6 @@ const styles = StyleSheet.create({
   productIcon: {
     width: 58,
     height: 58,
-    backgroundColor: '#E2F0F4',
     borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
@@ -939,27 +929,23 @@ const styles = StyleSheet.create({
   },
 
   productName: {
-    color: '#0F172A',
     fontSize: 19,
     fontWeight: 'bold',
   },
 
   stock: {
-    color: '#0F766E',
     marginTop: 8,
     fontWeight: 'bold',
     fontSize: 14,
   },
 
   inputContainer: {
-    backgroundColor: '#FFFFFF',
     height: 65,
     borderRadius: 18,
     paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     shadowColor: '#000000',
     shadowOffset: {
       width: 0,
@@ -973,12 +959,10 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     marginLeft: 10,
-    color: '#0F172A',
     fontSize: 18,
   },
 
   resultCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 22,
     padding: 22,
     marginTop: 28,
@@ -997,20 +981,44 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 14,
-    backgroundColor: '#E2F0F4',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
   },
 
   resultText: {
-    color: '#64748B',
     fontSize: 15,
     fontWeight: '500',
   },
 
+  qrButton: {
+    backgroundColor: '#2563EB',
+    borderRadius: 25,
+    padding: 22,
+    marginTop: 30,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  qrContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+  },
+
+  qrTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+
+  qrSubtitle: {
+    color: '#DBEAFE',
+    marginTop: 3,
+  },
+
   resultValue: {
-    color: '#094F63',
     fontSize: 40,
     fontWeight: 'bold',
     marginTop: 7,
@@ -1043,12 +1051,10 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
     justifyContent: 'flex-end',
   },
 
   modalContent: {
-    backgroundColor: '#F1F5F9',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 20,
@@ -1063,32 +1069,27 @@ const styles = StyleSheet.create({
   },
 
   modalTitle: {
-    color: '#094F63',
     fontSize: 21,
     fontWeight: 'bold',
   },
 
   searchContainer: {
-    backgroundColor: '#FFFFFF',
     height: 55,
     borderRadius: 16,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     marginBottom: 12,
   },
 
   searchInput: {
     flex: 1,
     marginLeft: 10,
-    color: '#0F172A',
     fontSize: 16,
   },
 
   listItem: {
-    backgroundColor: '#FFFFFF',
     minHeight: 65,
     borderRadius: 16,
     paddingHorizontal: 14,
@@ -1101,7 +1102,6 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: '#E2F0F4',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1112,20 +1112,17 @@ const styles = StyleSheet.create({
   },
 
   listItemText: {
-    color: '#0F172A',
     fontSize: 16,
     fontWeight: '600',
   },
 
   listItemSub: {
-    color: '#64748B',
     fontSize: 13,
     marginTop: 3,
   },
 
   emptyText: {
     textAlign: 'center',
-    color: '#64748B',
     fontSize: 15,
     paddingVertical: 30,
   },

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useEffect, useState } from 'react';
 
 import {
   View,
@@ -9,49 +10,136 @@ import {
   Switch,
   Image,
   Alert,
+  Modal,
+  TextInput,
+  StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 
+import { useNotifications } from '../src/context/NotificationContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../src/context/ThemeContext';
 
 import api from '../src/services/api';
 
-export default function SettingsScreen({ navigation }) {
+export default function SettingsScreen({ navigation, route }) {
 
-  const [darkMode, setDarkMode] = useState(true);
-  const [notifications, setNotifications] = useState(true);
+  const { darkMode, setDarkMode } = useTheme();
+  const {
+    notificationsEnabled,
+    setNotificationsEnabled,
+    loadingNotifications,
+  } = useNotifications();
 
   const [userData, setUserData] = useState({
-    name: 'Carregando...',
+    name: 'Funcionário',
     role: 'Operador de Estoque',
-    email: 'carregando...',
+    email: '',
   });
 
+  const [profilePhoto, setProfilePhoto] = useState(null);
+
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  // PALETA DE CORES DOS TEMAS
+
+  const theme = darkMode
+    ? {
+      background: '#0B1018',
+      card: '#171E2A',
+      cardSecondary: '#202B38',
+      text: '#F4F7FB',
+      secondary: '#94A3B8',
+      border: '#303B49',
+      accent: '#1f9b88',
+      accentBackground: '#193A45',
+      green: '#36D99A',
+      greenBackground: '#163B32',
+      logout: '#104B5B',
+      statusBar: 'light-content',
+    }
+    : {
+      background: '#F4F7FC',
+      card: '#FFFFFF',
+      cardSecondary: '#F0F5F8',
+      text: '#0F172A',
+      secondary: '#64748B',
+      border: '#E4EAF2',
+      accent: '#094F63',
+      accentBackground: '#E2F0F4',
+      green: '#16A34A',
+      greenBackground: '#DCFCE7',
+      logout: '#094F63',
+      statusBar: 'dark-content',
+    };
+
+
+  // CARREGA OS DADOS DO FUNCIONÁRIO
+
   useEffect(() => {
-    loadUserProfile();
+    const funcionario =
+      route?.params?.funcionario ||
+      route?.params?.user;
+
+    if (funcionario) {
+
+      setUserData({
+        name: funcionario.nome || 'Nome não informado',
+        role: funcionario.cargo || 'Cargo não informado',
+        email: funcionario.funcionario_email || funcionario.email || '',
+      });
+    }
+  }, [route?.params]);
+
+  // CARREGA A FOTO DE PERFIL DO BANCO
+
+  useEffect(() => {
+    const carregarImagemPerfil = async () => {
+      try {
+        const response = await api.get('/api/perfil/imagem');
+
+        if (
+          response.data.sucesso &&
+          response.data.imagem_base64
+        ) {
+          const tipo = (response.data.imagem_tipo || 'image/jpeg').toLowerCase();
+
+          const extensao = tipo
+            .replace(/^image\//, '')
+            .replace(/^\./, '');
+
+          const mimeType =
+            extensao === 'jpg' || extensao === 'jpeg'
+              ? 'image/jpeg'
+              : `image/${extensao}`;
+
+          const imagemUri = `data:${mimeType};base64,${response.data.imagem_base64}`;
+
+          setProfilePhoto(imagemUri);
+        } else {
+          setProfilePhoto(null);
+        }
+
+      } catch (error) {
+        setProfilePhoto(null);
+      }
+    };
+
+    carregarImagemPerfil();
   }, []);
 
-  const loadUserProfile = async () => {
-    try {
-
-      const response = await api.post('/login', {
-        email: 'lucas@empresa.com',
-        password: '123456',
-      });
-
-      if (response.data.success) {
-        setUserData(response.data.user);
-      }
-
-    } catch (error) {
-      console.log(
-        'Erro ao carregar dados do usuário:',
-        error
-      );
-    }
-  };
+  // SAIR DA CONTA
 
   const handleLogout = () => {
-
     Alert.alert(
       'Sair da Conta',
       'Deseja realmente sair da aplicação?',
@@ -64,573 +152,605 @@ export default function SettingsScreen({ navigation }) {
           text: 'Sair',
           style: 'destructive',
           onPress: () => {
-
             navigation.reset({
               index: 0,
-              routes: [
-                {
-                  name: 'Login',
-                },
-              ],
+              routes: [{ name: 'Login' }],
             });
-
           },
         },
       ]
     );
   };
 
-  return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
+  // COMPONENTE DOS CARTÕES DE MENU
+
+  const MenuRow = ({
+    icon,
+    title,
+    subtitle,
+    onPress,
+    color,
+    iconBackground,
+  }) => (
+    <TouchableOpacity
+      style={[
+        styles.menuCard,
+        {
+          backgroundColor: theme.card,
+          borderColor: theme.border,
+        },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.75}
     >
+      <View style={styles.menuLeft}>
 
-      {/* ================= HEADER ================= */}
+        <View
+          style={[
+            styles.menuIcon,
+            { backgroundColor: iconBackground },
+          ]}
+        >
+          <Ionicons
+            name={icon}
+            size={25}
+            color={color}
+          />
+        </View>
 
-      <View style={styles.header}>
+        <View style={styles.optionText}>
+          <Text style={[styles.optionTitle, { color: theme.text }]}>
+            {title}
+          </Text>
 
-        <Text style={styles.title}>
-          Configurações
-        </Text>
-
-        <Text style={styles.subtitle}>
-          Gerencie preferências do sistema
-        </Text>
+          <Text
+            style={[
+              styles.optionSubtitle,
+              { color: theme.secondary },
+            ]}
+          >
+            {subtitle}
+          </Text>
+        </View>
 
       </View>
 
+      <Ionicons
+        name="chevron-forward"
+        size={23}
+        color={theme.secondary}
+      />
+    </TouchableOpacity>
+  );
 
-      {/* ================= PERFIL ================= */}
+  // COMPONENTE DE TÍTULO DAS SEÇÕES
 
-      <View style={styles.profileCard}>
+  const SectionTitle = ({ children }) => (
+    <View style={styles.sectionHeader}>
+      <View
+        style={[
+          styles.sectionIndicator,
+          { backgroundColor: theme.accent },
+        ]}
+      />
 
-        <Image
-          source={{
-            uri:
-              'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1200&auto=format&fit=crop',
-          }}
-          style={styles.avatar}
-        />
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>
+        {children}
+      </Text>
+    </View>
+  );
 
-        <View style={styles.profileInfo}>
+  // TELA PRINCIPAL
 
-          <Text style={styles.userName}>
-            {userData.name}
-          </Text>
+  return (
+    <View
+      style={[
+        styles.screen,
+        { backgroundColor: theme.background },
+      ]}
+    >
 
-          <Text style={styles.userRole}>
-            {userData.role}
-          </Text>
+      <StatusBar
+        barStyle={theme.statusBar}
+        backgroundColor={theme.background}
+      />
 
-          <Text style={styles.userEmail}>
-            {userData.email}
-          </Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+
+        {/* CABEÇALHO */}
+
+        <View style={styles.header}>
+          <View>
+            <Text style={[styles.title, { color: theme.text }]}>
+              Configurações
+            </Text>
+
+            <Text
+              style={[
+                styles.subtitle,
+                { color: theme.secondary },
+              ]}
+            >
+              Gerencie preferências do sistema
+            </Text>
+          </View>
 
         </View>
 
-        <TouchableOpacity style={styles.editButton}>
+        {/* PERFIL */}
 
+        <View
+          style={[
+            styles.profileCard,
+            {
+              backgroundColor: theme.card,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.avatarRing,
+              { borderColor: theme.accent },
+            ]}
+          >
+            {profilePhoto ? (
+              <Image
+                source={{ uri: profilePhoto }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View
+                style={[
+                  styles.avatarPlaceholder,
+                  { backgroundColor: theme.accentBackground },
+                ]}
+              >
+                <Ionicons
+                  name="person"
+                  size={43}
+                  color={theme.accent}
+                />
+              </View>
+            )}
+          </View>
+
+          <View style={styles.profileInfo}>
+            <Text style={[styles.nomeUsuario, { color: theme.text }]}>
+              {userData.name}
+            </Text>
+
+            <Text style={[styles.cargoUsuario, { color: theme.secondary }]}>
+              {userData.role}
+            </Text>
+          </View>
+
+        </View>
+
+        {/* PREFERÊNCIAS */}
+
+        <SectionTitle>
+          Preferências
+        </SectionTitle>
+
+        {/* MODO ESCURO */}
+
+        <View
+          style={[
+            styles.optionCard,
+            {
+              backgroundColor: theme.card,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+
+          <View style={styles.optionLeft}>
+            <View
+              style={[
+                styles.menuIcon,
+                { backgroundColor: theme.accentBackground },
+              ]}
+            >
+              <Ionicons
+                name="moon-outline"
+                size={25}
+                color={theme.accent}
+              />
+            </View>
+
+            <View style={styles.optionText}>
+              <Text style={[styles.optionTitle, { color: theme.text }]}>
+                Modo Escuro
+              </Text>
+
+              <Text
+                style={[
+                  styles.optionSubtitle,
+                  { color: theme.secondary },
+                ]}
+              >
+                Tema visual do aplicativo
+              </Text>
+            </View>
+          </View>
+
+          <Switch
+            value={darkMode}
+            onValueChange={setDarkMode}
+            trackColor={{
+              false: '#CBD5E1',
+              true: '#42C8DC',
+            }}
+            thumbColor="#FFFFFF"
+          />
+
+        </View>
+
+        {/* NOTIFICAÇÕES */}
+
+        <View
+          style={[
+            styles.optionCard,
+            {
+              backgroundColor: theme.card,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+
+          <View style={styles.optionLeft}>
+            <View
+              style={[
+                styles.menuIcon,
+                { backgroundColor: theme.greenBackground },
+              ]}
+            >
+              <Ionicons
+                name="notifications-outline"
+                size={25}
+                color={theme.green}
+              />
+            </View>
+
+            <View style={styles.optionText}>
+              <Text style={[styles.optionTitle, { color: theme.text }]}>
+                Notificações
+              </Text>
+
+              <Text
+                style={[
+                  styles.optionSubtitle,
+                  { color: theme.secondary },
+                ]}
+              >
+                Alertas do sistema
+              </Text>
+            </View>
+          </View>
+
+          <Switch
+            value={notificationsEnabled}
+            onValueChange={setNotificationsEnabled}
+            disabled={loadingNotifications}
+            trackColor={{
+              false: '#CBD5E1',
+              true: '#86EFAC',
+            }}
+            thumbColor="#FFFFFF"
+          />
+
+        </View>
+
+        {/* SAIR DA CONTA */}
+
+        <TouchableOpacity
+          style={[
+            styles.logoutButton,
+            { backgroundColor: theme.logout },
+          ]}
+          onPress={handleLogout}
+          activeOpacity={0.85}
+        >
           <Ionicons
-            name="create-outline"
-            size={21}
+            name="log-out-outline"
+            size={25}
             color="#FFFFFF"
           />
 
+          <Text style={styles.logoutText}>
+            Sair da Conta
+          </Text>
         </TouchableOpacity>
 
-      </View>
+        {/* RODAPÉ */}
 
+        <View style={styles.footer}>
+          <View
+            style={[
+              styles.footerLine,
+              { backgroundColor: theme.border },
+            ]}
+          />
 
-      {/* ================= PREFERÊNCIAS ================= */}
-
-      <Text style={styles.sectionTitle}>
-        Preferências
-      </Text>
-
-
-      <View style={styles.optionCard}>
-
-        <View style={styles.optionLeft}>
-
-          <View style={styles.iconBlue}>
-
-            <Ionicons
-              name="moon-outline"
-              size={22}
-              color="#094F63"
-            />
-
-          </View>
-
-          <View>
-
-            <Text style={styles.optionTitle}>
-              Modo Escuro
+          <Text style={[styles.footerText, { color: theme.secondary }]}>
+            <Text style={{ color: theme.accent, fontWeight: 'bold' }}>
+              Voiture
             </Text>
+            {' '}• Perfil e configurações
+          </Text>
 
-            <Text style={styles.optionSubtitle}>
-              Tema visual do aplicativo
-            </Text>
-
-          </View>
-
+          <View
+            style={[
+              styles.footerLine,
+              { backgroundColor: theme.border },
+            ]}
+          />
         </View>
 
-        <Switch
-          value={darkMode}
-          onValueChange={setDarkMode}
-          trackColor={{
-            false: '#CBD5E1',
-            true: '#7FAEBC',
-          }}
-          thumbColor={
-            darkMode
-              ? '#094F63'
-              : '#F8FAFC'
-          }
-        />
+        <View style={{ height: 25 }} />
 
-      </View>
+      </ScrollView>
 
-
-      <View style={styles.optionCard}>
-
-        <View style={styles.optionLeft}>
-
-          <View style={styles.iconGreen}>
-
-            <Ionicons
-              name="notifications-outline"
-              size={22}
-              color="#16A34A"
-            />
-
-          </View>
-
-          <View>
-
-            <Text style={styles.optionTitle}>
-              Notificações
-            </Text>
-
-            <Text style={styles.optionSubtitle}>
-              Alertas do sistema
-            </Text>
-
-          </View>
-
-        </View>
-
-        <Switch
-          value={notifications}
-          onValueChange={setNotifications}
-          trackColor={{
-            false: '#CBD5E1',
-            true: '#86EFAC',
-          }}
-          thumbColor={
-            notifications
-              ? '#16A34A'
-              : '#F8FAFC'
-          }
-        />
-
-      </View>
-
-
-      {/* ================= SEGURANÇA ================= */}
-
-      <Text style={styles.sectionTitle}>
-        Conta e Segurança
-      </Text>
-
-
-      <TouchableOpacity style={styles.menuCard}>
-
-        <View style={styles.menuLeft}>
-
-          <View style={styles.iconBlue}>
-
-            <Ionicons
-              name="lock-closed-outline"
-              size={22}
-              color="#094F63"
-            />
-
-          </View>
-
-          <View>
-
-            <Text style={styles.menuTitle}>
-              Alterar Senha
-            </Text>
-
-            <Text style={styles.menuSubtitle}>
-              Atualizar credenciais
-            </Text>
-
-          </View>
-
-        </View>
-
-        <Ionicons
-          name="chevron-forward"
-          size={22}
-          color="#94A3B8"
-        />
-
-      </TouchableOpacity>
-
-
-      <TouchableOpacity style={styles.menuCard}>
-
-        <View style={styles.menuLeft}>
-
-          <View style={styles.iconGreen}>
-
-            <Ionicons
-              name="shield-checkmark-outline"
-              size={22}
-              color="#16A34A"
-            />
-
-          </View>
-
-          <View>
-
-            <Text style={styles.menuTitle}>
-              Privacidade
-            </Text>
-
-            <Text style={styles.menuSubtitle}>
-              Configurações de acesso
-            </Text>
-
-          </View>
-
-        </View>
-
-        <Ionicons
-          name="chevron-forward"
-          size={22}
-          color="#94A3B8"
-        />
-
-      </TouchableOpacity>
-
-
-      {/* ================= LOGOUT ================= */}
-
-      <TouchableOpacity
-        style={styles.logoutButton}
-        onPress={handleLogout}
-      >
-
-        <Ionicons
-          name="log-out-outline"
-          size={24}
-          color="#FFFFFF"
-        />
-
-        <Text style={styles.logoutText}>
-          Sair da Conta
-        </Text>
-
-      </TouchableOpacity>
-
-
-      <View style={{ height: 50 }} />
-
-    </ScrollView>
+    </View>
   );
 }
 
 
-/* ======================================================
-   ESTILOS
-====================================================== */
+// ESTILIZAÇÃO
 
 const styles = StyleSheet.create({
 
-  /* ================= CONTAINER ================= */
-
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 20,
   },
 
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+  },
 
-  /* ================= HEADER ================= */
+  // CABEÇALHO
 
   header: {
     marginTop: 55,
-    marginBottom: 30,
+    marginBottom: 35,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 
   title: {
-    color: '#094F63',
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: 'bold',
   },
 
   subtitle: {
-    color: '#64748B',
-    marginTop: 5,
-    fontSize: 15,
+    marginTop: 7,
+    fontSize: 14,
   },
 
+  headerIcon: {
+    width: 55,
+    height: 55,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 
-  /* ================= PERFIL ================= */
+  // PERFIL
 
   profileCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 28,
-
-    padding: 20,
-
+    padding: 17,
     flexDirection: 'row',
     alignItems: 'center',
-
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.06,
-    shadowRadius: 7,
-
     elevation: 3,
+    shadowColor: '#64748B',
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+
+  avatarRing: {
+    width: 90,
+    height: 90,
+    borderRadius: 50,
+    borderWidth: 3,
+    padding: 3,
   },
 
   avatar: {
-    width: 78,
-    height: 78,
-    borderRadius: 22,
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+  },
+
+  avatarPlaceholder: {
+    flex: 1,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   profileInfo: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 14,
   },
 
-  userName: {
-    color: '#0F172A',
-    fontSize: 21,
+  nomeUsuario: {
+    fontSize: 18,
     fontWeight: 'bold',
+  },
+
+  cargoUsuario: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 7,
+  },
+
+  roleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 7,
+    gap: 5,
   },
 
   userRole: {
-    color: '#094F63',
-    marginTop: 5,
+    fontSize: 13,
     fontWeight: '600',
-    fontSize: 14,
+    flexShrink: 1,
   },
 
   userEmail: {
-    color: '#64748B',
-    marginTop: 6,
-    fontSize: 13,
+    fontSize: 12,
+    marginTop: 7,
   },
 
-  editButton: {
-    width: 46,
-    height: 46,
+  profileArrow: {
+    marginLeft: 5,
+  },
 
-    backgroundColor: '#094F63',
+  // SEÇÕES
 
-    borderRadius: 15,
-
-    justifyContent: 'center',
+  sectionHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-
-    marginLeft: 8,
+    marginTop: 35,
+    marginBottom: 17,
   },
 
-
-  /* ================= SEÇÕES ================= */
+  sectionIndicator: {
+    width: 5,
+    height: 32,
+    borderRadius: 5,
+    marginRight: 12,
+  },
 
   sectionTitle: {
-    color: '#0F172A',
-
     fontSize: 21,
     fontWeight: 'bold',
-
-    marginTop: 35,
-    marginBottom: 18,
   },
 
-
-  /* ================= OPÇÕES ================= */
+  // CARTÕES
 
   optionCard: {
-    backgroundColor: '#FFFFFF',
-
-    borderRadius: 22,
-
-    padding: 18,
-    marginBottom: 14,
-
+    borderRadius: 25,
+    padding: 17,
+    marginBottom: 13,
+    minHeight: 90,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.04,
-    shadowRadius: 5,
-
     elevation: 2,
+    shadowColor: '#64748B',
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
 
   optionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
 
+  optionText: {
     flex: 1,
   },
 
   optionTitle: {
-    color: '#0F172A',
-
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: 'bold',
   },
 
   optionSubtitle: {
-    color: '#64748B',
-
-    marginTop: 4,
-
     fontSize: 13,
+    marginTop: 5,
   },
 
-
-  /* ================= MENU ================= */
-
   menuCard: {
-    backgroundColor: '#FFFFFF',
-
-    borderRadius: 22,
-
-    padding: 18,
-    marginBottom: 14,
-
+    borderRadius: 25,
+    padding: 17,
+    marginBottom: 13,
+    minHeight: 90,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.04,
-    shadowRadius: 5,
-
     elevation: 2,
+    shadowColor: '#64748B',
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
 
   menuLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-
     flex: 1,
   },
 
-  menuTitle: {
-    color: '#0F172A',
-
-    fontSize: 17,
-    fontWeight: 'bold',
-  },
-
-  menuSubtitle: {
-    color: '#64748B',
-
-    marginTop: 4,
-
-    fontSize: 13,
-  },
-
-
-  /* ================= ÍCONES ================= */
-
-  iconBlue: {
-    width: 50,
-    height: 50,
-
-    backgroundColor: '#E2F0F4',
-
-    borderRadius: 16,
-
+  menuIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
-
     marginRight: 15,
   },
 
-  iconGreen: {
-    width: 50,
-    height: 50,
-
-    backgroundColor: '#DCFCE7',
-
-    borderRadius: 16,
-
-    justifyContent: 'center',
-    alignItems: 'center',
-
-    marginRight: 15,
-  },
-
-
-  /* ================= LOGOUT ================= */
+  // BOTÃO SAIR
 
   logoutButton: {
-    backgroundColor: '#DC2626',
-
-    height: 65,
-
-    borderRadius: 22,
-
-    marginTop: 35,
-
+    height: 67,
+    borderRadius: 35,
+    marginTop: 24,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-
-    gap: 10,
-
-    shadowColor: '#DC2626',
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-
+    gap: 12,
     elevation: 3,
   },
 
   logoutText: {
     color: '#FFFFFF',
-
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
   },
 
+  // RODAPÉ
+
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 30,
+    gap: 10,
+  },
+
+  footerLine: {
+    flex: 1,
+    height: 1,
+  },
+
+  footerLogo: {
+    fontSize: 29,
+    fontWeight: '900',
+  },
+
+  footerText: {
+    fontSize: 11,
+  },
+
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  }
 });

@@ -425,3 +425,31 @@ select#funcionario_id {
     color: white;
     transform: translateY(-1px);
 }
+
+#btnLimpar{
+    background-color: rgba(193, 193, 193, 0.262);
+    color: rgb(47, 47, 47);
+    margin: 5px;
+}
+
+#btnLimpar:hover{
+    background-color: rgba(162, 162, 162, 0.666);
+    transition:  0.3s; 
+}
+
+.sidebar-logo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0 10px;
+    margin-top: -10px;     
+    margin-bottom: 10px;
+    height: 100px;          
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.sidebar-logo img {
+    max-width: 100px;
+    max-height: 100%;
+    
+}

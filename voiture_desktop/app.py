@@ -1,4 +1,5 @@
 # Editado por Ryan em 11/08/2026 às 10h12
+import base64
 from apscheduler.schedulers.background import BackgroundScheduler
 from models.notificacao import Notificacao
 from core.database import Database
@@ -17,11 +18,14 @@ from models.detalhe_saida import Detalhe_saida
 from models.pedido_saida import Pedido_saida
 from models.estoque import Estoque
 from datetime import datetime
+from flask_cors import CORS
 
 
 
 
 app = Flask(__name__)
+
+CORS(app, supports_credentials=True)
 
 app.secret_key = "chave_secreta"
 
@@ -42,6 +46,252 @@ def to_int(value, default=0):
 def imagem_permitida(tipo_arquivo):
     return tipo_arquivo in EXTENSOES_PERMITIDAS
 
+# =========================================================
+# CONFIGURAÇÃO DO BANCO IOT iot iot 
+# =========================================================
+
+DB_CONFIG = {
+    "host": "localhost",
+    "user": "root",
+    "password": "123456",
+    "database": "voiture_estoque"
+}
+
+
+def conectar():
+
+    return mysql.connector.connect(
+        **DB_CONFIG
+    )
+
+
+# =========================================================
+# DISTÂNCIA HC-SR04
+# =========================================================
+
+@app.route("/api/distancia")
+def distancia():
+
+    conexao = Database.connect()
+
+    cursor = conexao.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT
+            id,
+            device_id,
+            distancia,
+            data_hora
+        FROM leituras
+        WHERE sensor = 'HC-SR04'
+        ORDER BY data_hora DESC
+        LIMIT 100
+    """)
+
+    dados = cursor.fetchall()
+
+    cursor.close()
+    conexao.close()
+
+    dados.reverse()
+
+    for item in dados:
+
+        item["distancia"] = float(
+            item["distancia"]
+        ) if item["distancia"] is not None else None
+
+        item["data_hora"] = item[
+            "data_hora"
+        ].strftime("%Y-%m-%d %H:%M:%S")
+
+
+    return jsonify(dados)
+
+
+# =========================================================
+# RFID
+# =========================================================
+
+@app.route("/api/rfid")
+def rfid():
+
+    conexao = Database.connect()
+
+    cursor = conexao.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT
+            id,
+            device_id,
+            rfid_uid,
+            data_hora
+        FROM leituras
+        WHERE sensor = 'MFRC522'
+          AND rfid_uid IS NOT NULL
+        ORDER BY data_hora DESC
+        LIMIT 50
+    """)
+
+    dados = cursor.fetchall()
+
+    cursor.close()
+    conexao.close()
+
+    dados.reverse()
+
+
+    # -----------------------------------------------------
+    # Regra DIDÁTICA de entrada / saída
+    # -----------------------------------------------------
+
+    estados = {}
+
+    for item in dados:
+
+        uid = item["rfid_uid"]
+
+        if uid not in estados:
+
+            estados[uid] = "ENTRADA"
+
+        else:
+
+            if estados[uid] == "ENTRADA":
+
+                estados[uid] = "SAIDA"
+
+            else:
+
+                estados[uid] = "ENTRADA"
+
+
+        item["movimento"] = estados[uid]
+
+        item["data_hora"] = item[
+            "data_hora"
+        ].strftime("%Y-%m-%d %H:%M:%S")
+
+
+        # Produto fictício associado ao UID
+        item["produto"] = (
+            "Produto RFID " + uid[-4:]
+        )
+
+
+    return jsonify(dados)
+
+
+# =========================================================
+# RESUMO DO DASHBOARD
+# =========================================================
+
+@app.route("/api/resumo")
+def resumo():
+
+    conexao = Database.connect()
+
+    cursor = conexao.cursor(dictionary=True)
+
+    # Última leitura RFID
+
+    cursor.execute("""
+        SELECT
+            rfid_uid,
+            data_hora
+        FROM leituras
+        WHERE sensor = 'MFRC522'
+          AND rfid_uid IS NOT NULL
+        ORDER BY data_hora DESC
+        LIMIT 1
+    """)
+
+    ultimo_rfid = cursor.fetchone()
+
+
+    # Quantidade RFID
+
+    cursor.execute("""
+        SELECT COUNT(*) AS total
+        FROM leituras
+        WHERE sensor = 'MFRC522'
+          AND rfid_uid IS NOT NULL
+    """)
+
+    total_rfid = cursor.fetchone()
+
+
+    cursor.close()
+    conexao.close()
+
+
+    leitor_ativo = False
+
+
+    if ultimo_rfid:
+
+        agora = datetime.now()
+
+        diferenca = (
+            agora -
+            ultimo_rfid["data_hora"]
+        ).total_seconds()
+
+
+        # Considera leitor ativo
+        # se houve leitura nos últimos 60 segundos
+
+        leitor_ativo = diferenca <= 60
+
+
+    return jsonify({
+
+        "rfid_total":
+            total_rfid["total"],
+
+        "rfid_ultimo":
+            ultimo_rfid["rfid_uid"]
+            if ultimo_rfid
+            else None,
+
+        "leitor_ativo":
+            leitor_ativo
+
+    })
+
+
+# =========================================================
+# STATUS
+# =========================================================
+
+@app.route("/api/status")
+def status():
+
+    return jsonify({
+
+        "api": "online",
+
+        "banco": "voiture_estoque",
+
+        "status": "OK"
+
+    })
+
+
+# =========================================================
+# EXECUÇÃO IOT
+# =========================================================
+
+#####################################################
+# -----> Início: dashboard-iot
+
+@app.route('/dashboard-iot')
+@login_obrigatorio
+def dashboardiot():
+
+    return render_template(
+        'dashboard-iot.html'
+    )
 
 #######################################################################
 # -----> Início: Notificações
@@ -49,6 +299,8 @@ def imagem_permitida(tipo_arquivo):
 # Rota responsável por buscar as notificações
 @app.route('/api/notificacoes')
 def api_notificacoes():
+    # Verifica e gera as notificações necessárias
+    Notificacao.verificar_e_gerar()
     # Busca todas as notificações no banco de dados
     notificacoes = Notificacao.listar()
     # Retorna as notificações em formato JSON
@@ -97,9 +349,9 @@ def pagina_nao_encontrada(error):
 # -----> Início: Landing Page
 
 #Rota para a Landing Page do Sistema
-@app.route('/landingpage')
+@app.route('/')
 def landingpage():
-    return render_template('landing_page.html')
+    return render_template('index.html')
 
 @app.route("/enviar_contato", methods=["POST"])
 #Envia os dados do cliente interessado para o email da empresa
@@ -129,7 +381,9 @@ def enviar_contato():
 # -----> Início: Login
 
 #entra no sistema e já vai na primeira tela do sistema, LOGIN
-@app.route("/")
+
+
+@app.route("/login")
 def inicio():
     if "usuario_id" in session: #se já estiver logado, não precisa de login
         return redirect(url_for("base"))
@@ -144,55 +398,55 @@ def loginfuncionario():
         return redirect(url_for("base"))
     return render_template('loginfuncionario.html')
 
-# Login Mobile
+
+#Login Mobile
 @app.route('/api/login_mobile', methods=['POST'])
 def login_mobile():
 
     try:
-
-        # Recebe os dados enviados pelo React Native
         dados = request.get_json()
 
         email = dados.get('email')
         senha = dados.get('senha')
 
-        # Verifica se os campos foram preenchidos
         if not email or not senha:
             return jsonify({
                 "sucesso": False,
                 "mensagem": "Preencha o e-mail e a senha."
             }), 400
 
-        # Autentica o funcionário
         funcionario = Funcionario.autenticar(email, senha)
 
-        # E-mail e/ou senha incorretos
         if not funcionario:
             return jsonify({
                 "sucesso": False,
                 "mensagem": "E-mail e/ou senha inválidos."
             }), 401
 
-        # Verifica se o funcionário possui acesso ao sistema
         if not funcionario.get('funcionario_acesso'):
             return jsonify({
                 "sucesso": False,
                 "mensagem": "Seu acesso ao sistema está bloqueado."
             }), 403
 
-        # Remove informações que não devem ser enviadas para o aplicativo
+        # CRIA A SESSÃO DO FUNCIONÁRIO
+        session['usuario_id'] = funcionario.get('id')
+
+        # Remove informações sensíveis
         funcionario.pop('funcionario_senha', None)
         funcionario.pop('imagem_blob', None)
 
         return jsonify({
             "sucesso": True,
             "mensagem": "Login realizado com sucesso.",
-            "funcionario": funcionario
+            "funcionario": {
+                **funcionario,
+                "nome": funcionario.get('nome') or funcionario.get('funcionario_nome'),
+                "cargo": funcionario.get('cargo') or funcionario.get('funcionario_cargo')
+            }
         }), 200
 
     except Exception as e:
-
-        print("ERRO LOGIN MOBILE:", e)
 
         return jsonify({
             "sucesso": False,
@@ -269,7 +523,6 @@ def perfil():
 
     #funcionario = Funcionario.find_by_id(session["usuario_id"])
     funcionario = Funcionario.funcionario_listagem_id(session["usuario_id"])
-    print(funcionario['funcionario_nome'])
     return render_template(
         'perfil.html',
         funcionario=funcionario
@@ -559,34 +812,52 @@ def api_listagem_produto():
     produtos = Estoque.produtos_mobile()
     return jsonify(produtos), 200
 
+@app.route("/api/produtos/code/<codigo>", methods=["GET"])
+def api_produto_por_codigo(codigo):
+    produtos = Estoque.produtos_mobile()
+
+    for produto in produtos:
+        if str(produto.get("id")) == str(codigo):
+            return jsonify(produto), 200
+
+    return jsonify({"erro": "Produto não encontrado."}), 404
+
+
 #Registra os dados do produto
 @app.route("/salvar_produto", methods=["POST"])
 @login_obrigatorio
 def salvar_produto():
     arquivo = request.files.get("imagem")
 
+
     #Prepara a imagem
     imagem_nome = None
     imagem_tipo = None
     imagem_blob = None
+
 
     if arquivo and arquivo.filename != "":
         if not imagem_permitida(arquivo.content_type):
             flash("Formato de imagem inválido. Use PNG, JPG, JPEG ou WEBP.", "danger")
             return redirect(url_for("listagem_produto"))
 
+
         imagem_nome = arquivo.filename
         imagem_tipo = arquivo.content_type
         imagem_blob = arquivo.read()
 
+
     
     dados = get_produto_form()
+
 
     dados["imagem_nome"] = imagem_nome
     dados["imagem_tipo"] = imagem_tipo
     dados["imagem_blob"] = imagem_blob
 
+
     produto = Produto(**dados)
+
 
     #Valida erros
     erros = produto.validate()
@@ -594,15 +865,22 @@ def salvar_produto():
         for erro in erros:
             flash(erro, "erro")
         return render_template("cadastroproduto.html", produto=dados)
+    
+    for campo in ("produto_preco_custo", "produto_preco_venda", "produto_peso"):
+        valor = str(getattr(produto, campo)).replace(",", ".")
+        setattr(produto, campo, float(valor))
+
 
     quantidade = get_estoque_form()
     estoque = Estoque(**quantidade)
+
 
     erros = estoque.validate()
     if erros :
         for erro in erros:
             flash(erro, "erro")
         return render_template("cadastroproduto.html", estoque = quantidade)
+
 
     try:
         prod_id = produto.insert()
@@ -618,7 +896,6 @@ def salvar_produto():
         #Erro ao cadastrar
         flash(f"Erro ao cadastrar produto: {e}", "erro")
         return render_template("estoque.html", produto=dados)
-
 
 #Edição de dados do produto
 @app.route("/editar_produto/<int:id>")
@@ -854,8 +1131,6 @@ def nova_entrada():
                     detalhe_entrada_item = cont,
                     detalhe_entrada_quantidade=int(item["quantidade"])
                 )
-            
-                print("check", teste)
             #sucesso
             flash("Pedido de entrada criado com sucesso.","sucesso")
             return redirect(url_for("pedidoentrada", pedido_entrada_id=pedido_entrada_id))
@@ -1039,7 +1314,6 @@ def nova_saida():
             pedido_saida_id = pedido.insert()
             cont = 0
             teste = []
-            print("antes itens", pedido_saida_id)
             for item in itens:
                 cont += 1
                 Detalhe_saida.adicionar_item(
@@ -1050,12 +1324,10 @@ def nova_saida():
                     
                 )
             
-            print("check", teste)
             flash("Pedido de saída criado com sucesso.","sucesso")
             return redirect(url_for("pedidosaida", pedido_saida_id=pedido_saida_id))
 
         except Exception as e:
-            print("erro", e)
             flash("Erro ao criar pedido de saída.")
             return render_template(
                 "formulario_pedidosaida.html",
@@ -1080,7 +1352,6 @@ def processar_pedido_saida(pedido_saida_id):
         mensagem = Pedido_saida.processar(pedido_saida_id)
         flash(mensagem, "sucesso")
     except ValueError as e:
-        print("VALUE ERROR:", e)
         flash(str(e), "erro")
     except Exception as e:
         flash(f"Erro ao processar pedido: {e}", "erro")
@@ -1729,42 +2000,47 @@ def get_uso_empilhadeira_form():
     }
 
 
-@app.route(
-    "/salvar_uso_empilhadeira",
-    methods=["POST"]
-)
+
+@app.route("/salvar_uso_empilhadeira", methods=["POST"])
 @login_obrigatorio
 def salvar_uso_empilhadeira():
 
     dados = get_uso_empilhadeira_form()
 
-    print("empilhadeira", dados)
-
     if not dados["empilhadeira_id"]:
-
         flash(
             "Selecione uma empilhadeira.",
             "erro"
         )
-
-        return redirect(
-            url_for("tabelaempilhadeira")
-        )
+        return redirect(url_for("tabelaempilhadeira"))
 
     if not dados["funcionario_id"]:
-
         flash(
             "Selecione um funcionário.",
             "erro"
         )
-
-        return redirect(
-            url_for("tabelaempilhadeira")
-        )
-
-    uso_empilhadeira = Uso_empilhadeira(**dados)
+        return redirect(url_for("tabelaempilhadeira"))
 
     try:
+        empilhadeira = Empilhadeira.find_by_id(
+            dados["empilhadeira_id"]
+        )
+
+        if not empilhadeira:
+            flash(
+                "Empilhadeira não encontrada.",
+                "erro"
+            )
+            return redirect(url_for("tabelaempilhadeira"))
+
+        if empilhadeira["empilhadeira_status"].upper() == "INATIVA":
+            flash(
+                "Não é possível utilizar uma empilhadeira inativa.",
+                "erro"
+            )
+            return redirect(url_for("tabelaempilhadeira"))
+
+        uso_empilhadeira = Uso_empilhadeira(**dados)
 
         uso_empilhadeira.insert()
 
@@ -1773,20 +2049,14 @@ def salvar_uso_empilhadeira():
             "sucesso"
         )
 
-        return redirect(
-            url_for("tabelaempilhadeira")
-        )
-
     except Exception as e:
-
         flash(
             f"Erro ao cadastrar uso de empilhadeira: {e}",
             "erro"
         )
 
-        return redirect(
-            url_for("tabelaempilhadeira")
-        )
+    return redirect(url_for("tabelaempilhadeira"))
+
 
 # -----> Fim: Uso de Empilhadeira
 ############################################################################################################
@@ -1805,9 +2075,8 @@ def get_cliente_form():
         "cliente_cep": request.form.get("cliente_cep", "").strip(),
         "cliente_email": request.form.get("cliente_email", "").strip(),
         "cliente_ddi": request.form.get("cliente_ddi", "").strip(),
-        "cliente_ddd": request.form.get("cliente_ddi", "").strip(),
+        "cliente_ddd": request.form.get("cliente_ddd", "").strip(),
         "cliente_telefone": request.form.get("cliente_telefone", "").strip(),
-        "cliente_descricao": request.form.get("funcionario_descricao", "").strip(),
     }
 
 #Listagem de clientes
@@ -1832,11 +2101,21 @@ def salvar_cliente():
     dados = get_cliente_form()
     cliente = Cliente(**dados)
 
-    numeros_cnpj = ""
-    for caractere in cliente.cliente_cnpj:
-        if caractere.isdigit():
-            numeros_cnpj = numeros_cnpj + caractere
-    cliente.cliente_cnpj = numeros_cnpj
+     # Remove a máscara do CNPJ
+    cliente.cliente_cnpj = ''.join(
+        caractere for caractere in cliente.cliente_cnpj
+        if caractere.isdigit()
+    )
+
+    # Remove a máscara do CEP
+    cliente.cliente_cep = ''.join(
+        caractere for caractere in cliente.cliente_cep
+        if caractere.isdigit()
+    )
+
+    # Atualiza os dados para manter os valores sem máscara
+    dados["cliente_cnpj"] = cliente.cliente_cnpj
+    dados["cliente_cep"] = cliente.cliente_cep
 
     erros = cliente.validate()
     if erros :
@@ -1950,7 +2229,6 @@ def get_fornecedor_form():
         "fornecedor_ddi": request.form.get("fornecedor_ddi", "").strip(),
         "fornecedor_ddd": request.form.get("fornecedor_ddd", "").strip(),
         "fornecedor_telefone": request.form.get("fornecedor_telefone", "").strip(),
-        "fornecedor_descricao": request.form.get("fornecedor_descricao", "").strip(),
     }
 
 # Registro do fornecedor no banco de dados
@@ -1965,11 +2243,21 @@ def salvar_fornecedor():
     #Transforma as chaves em argumentos
     fornecedor = Fornecedor(**dados)
 
-    numeros_cnpj = ""
-    for caractere in fornecedor.fornecedor_cnpj:
-        if caractere.isdigit():
-            numeros_cnpj = numeros_cnpj + caractere
-    fornecedor.fornecedor_cnpj = numeros_cnpj
+    # Remove a máscara do CNPJ
+    fornecedor.fornecedor_cnpj = ''.join(
+        caractere for caractere in fornecedor.fornecedor_cnpj
+        if caractere.isdigit()
+    )
+
+    # Remove a máscara do CEP
+    fornecedor.fornecedor_cep = ''.join(
+        caractere for caractere in fornecedor.fornecedor_cep
+        if caractere.isdigit()
+    )
+
+    # Atualiza os dados para manter os valores sem máscara
+    dados["fornecedor_cnpj"] = fornecedor.fornecedor_cnpj
+    dados["fornecedor_cep"] = fornecedor.fornecedor_cep
 
     #Validação
     erros = fornecedor.validate()
@@ -2203,11 +2491,24 @@ def salvar_funcionario():
     dados["imagem_tipo"] = imagem_tipo
     dados["imagem_blob"] = imagem_blob
     funcionario = Funcionario(**dados)  #junta os dados com a classe formando a variavel com tudo certo para outros procedimentos
-    numeros_cpf = ""
-    for caractere in funcionario.funcionario_cpf:
-        if caractere.isdigit():
-            numeros_cpf = numeros_cpf + caractere
-    funcionario.funcionario_cpf = numeros_cpf
+    
+
+    # Remove a máscara do CPF
+    funcionario.funcionario_cpf = ''.join(
+        caractere for caractere in funcionario.funcionario_cpf
+        if caractere.isdigit()
+    )
+
+    # Remove a máscara do CEP
+    funcionario.funcionario_cep = ''.join(
+        caractere for caractere in funcionario.funcionario_cep
+        if caractere.isdigit()
+    )
+
+    # Atualiza os dados para manter os valores sem máscara
+    dados["funcionario_cpf"] = funcionario.funcionario_cpf
+    dados["funcionario_cep"] = funcionario.funcionario_cep
+
     #Validação
     erros = funcionario.validate() 
     if erros: #se tiver algum erro dentro do validate, ele cai nesse if
@@ -2301,8 +2602,11 @@ def atualizar_funcionario(id):
 def deletar_funcionario(id):
     #Tenta deletar
     try:
-        Funcionario.safe_delete(id) #deleta o funcionario com parametro do id
-        flash("Funcionário excluído com sucesso.", "sucesso")
+        if session["usuario_id"] == id:
+            flash("Proibido excluir a própria conta", "erro")
+        else:
+            Funcionario.safe_delete(id) #deleta o funcionario com parametro do id
+            flash("Funcionário excluído com sucesso.", "sucesso")
     #Tratativa de erro
     except ValueError as e:
         flash(str(e), "erro")
@@ -2312,6 +2616,47 @@ def deletar_funcionario(id):
 
 # -----> Fim: Funcionário
 ############################################################################################################
+
+#Imagem - perfil mobile
+@app.route('/api/perfil/imagem', methods=['GET'])
+def api_imagem_perfil():
+
+    funcionario_id = session.get('usuario_id')
+
+
+    if not funcionario_id:
+
+        return jsonify({
+            'sucesso': False,
+            'mensagem': 'Usuário não autenticado.'
+        }), 401
+
+    funcionario = Funcionario.find_by_id(funcionario_id)
+
+    if not funcionario:
+        return jsonify({
+            'sucesso': False,
+            'mensagem': 'Funcionário não encontrado.'
+        }), 404
+
+    imagem_blob = funcionario.get('imagem_blob')
+    imagem_tipo = funcionario.get('imagem_tipo')
+
+    if not imagem_blob:
+        return jsonify({
+            'sucesso': True,
+            'imagem_base64': None,
+            'imagem_tipo': None,
+            'mensagem': 'Funcionário não possui foto de perfil.'
+        }), 200
+
+    imagem_base64 = base64.b64encode(imagem_blob).decode('utf-8')
+
+    return jsonify({
+        'sucesso': True,
+        'imagem_base64': imagem_base64,
+        'imagem_tipo': imagem_tipo
+    }), 200
 
 
 #Fim      

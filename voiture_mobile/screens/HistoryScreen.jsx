@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 
 import {
@@ -11,18 +12,55 @@ import {
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
-
 import { useFocusEffect } from '@react-navigation/native';
 
 import api from '../src/services/api';
+import { useTheme } from '../src/context/ThemeContext';
 
 export default function HistoryScreen() {
+
   const [search, setSearch] = useState('');
   const [history, setHistory] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
+  // ======================================================
+  // TEMA
+  // ======================================================
+
+  const { darkMode } = useTheme();
+
+  const colors = darkMode
+    ? {
+        background: '#0F172A',
+        card: '#1E293B',
+        text: '#F8FAFC',
+        secondary: '#94A3B8',
+        accent: '#67C3D2',
+        border: '#334155',
+        soft: '#253548',
+        input: '#1E293B',
+        muted: '#CBD5E1',
+      }
+    : {
+        background: '#F1F5F9',
+        card: '#FFFFFF',
+        text: '#0F172A',
+        secondary: '#94A3B8',
+        accent: '#094F63',
+        border: '#E2E8F0',
+        soft: '#E2F0F4',
+        input: '#FFFFFF',
+        muted: '#64748B',
+      };
+
+  // ======================================================
+  // BUSCAR HISTÓRICO
+  // ======================================================
+
   const loadHistory = async () => {
+
     try {
+
       const response = await api.get('/api/historico');
 
       setHistory(
@@ -30,27 +68,53 @@ export default function HistoryScreen() {
           ? response.data
           : []
       );
+
     } catch (error) {
+
+
       console.log(
         'Erro ao carregar histórico:',
         error.response?.data || error
       );
 
+
       setHistory([]);
+
     }
+
   };
+
+  // ======================================================
+  // ATUALIZAR HISTÓRICO
+  // ======================================================
 
   const onRefresh = async () => {
+
     setRefreshing(true);
+
     await loadHistory();
+
     setRefreshing(false);
+
   };
 
+  // ======================================================
+  // ATUALIZA AO ENTRAR NA TELA
+  // ======================================================
+
   useFocusEffect(
+
     useCallback(() => {
+
       loadHistory();
+
     }, [])
+
   );
+
+  // ======================================================
+  // ESTATÍSTICAS
+  // ======================================================
 
   const entriesCount = history.filter(
     (h) => String(h?.type || '') === 'Entrada'
@@ -60,63 +124,88 @@ export default function HistoryScreen() {
     (h) => String(h?.type || '') === 'Saída'
   ).length;
 
+  // ======================================================
+  // FILTRO
+  // ======================================================
+
   const filteredHistory = history.filter((item) => {
+
     const product = String(item?.product || '');
+
     const type = String(item?.type || '');
+
     const searchValue = String(search || '').toLowerCase();
 
     return (
       product.toLowerCase().includes(searchValue) ||
       type.toLowerCase().includes(searchValue)
     );
+
   });
 
   return (
-    <View style={styles.container}>
+
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
 
       {/* ================= HEADER ================= */}
 
       <View style={styles.header}>
 
         <View>
-          <Text style={styles.title}>
+
+          <Text style={[styles.title, { color: colors.accent }]}>
             Histórico
           </Text>
 
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.muted }]}>
             Movimentações do estoque
           </Text>
-        </View>
 
-        <TouchableOpacity
-          style={styles.filterButton}
-        >
-          <Ionicons
-            name="calendar-outline"
-            size={23}
-            color="#094F63"
-          />
-        </TouchableOpacity>
+        </View>
 
       </View>
 
       {/* ================= PESQUISA ================= */}
 
-      <View style={styles.searchContainer}>
+      <View
+        style={[
+          styles.searchContainer,
+          {
+            backgroundColor: colors.input,
+            borderColor: colors.border,
+          },
+        ]}
+      >
 
         <Ionicons
           name="search"
           size={21}
-          color="#94A3B8"
+          color={colors.secondary}
         />
 
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.text }]}
           placeholder="Pesquisar movimentações..."
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={colors.secondary}
           value={search}
           onChangeText={setSearch}
         />
+
+        {search.length > 0 && (
+
+          <TouchableOpacity
+            onPress={() => setSearch('')}
+          >
+
+            <Ionicons
+              name="close-circle"
+              size={20}
+              color={colors.secondary}
+            />
+
+          </TouchableOpacity>
+
+        )}
 
       </View>
 
@@ -124,41 +213,61 @@ export default function HistoryScreen() {
 
       <View style={styles.statsContainer}>
 
-        <View style={styles.statsCard}>
+        <View
+          style={[
+            styles.statsCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
+        >
 
           <View style={styles.statsIconGreen}>
+
             <Ionicons
               name="arrow-down-circle"
               size={23}
               color="#16A34A"
             />
+
           </View>
 
-          <Text style={styles.statsNumber}>
+          <Text style={[styles.statsNumber, { color: colors.text }]}>
             {entriesCount}
           </Text>
 
-          <Text style={styles.statsLabel}>
+          <Text style={[styles.statsLabel, { color: colors.muted }]}>
             Entradas
           </Text>
 
         </View>
 
-        <View style={styles.statsCard}>
+        <View
+          style={[
+            styles.statsCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
+        >
 
           <View style={styles.statsIconRed}>
+
             <Ionicons
               name="arrow-up-circle"
               size={23}
               color="#DC2626"
             />
+
           </View>
 
-          <Text style={styles.statsNumber}>
+          <Text style={[styles.statsNumber, { color: colors.text }]}>
             {exitsCount}
           </Text>
 
-          <Text style={styles.statsLabel}>
+          <Text style={[styles.statsLabel, { color: colors.muted }]}>
             Saídas
           </Text>
 
@@ -170,17 +279,22 @@ export default function HistoryScreen() {
 
       <FlatList
         data={filteredHistory}
+
         keyExtractor={(item, index) =>
           String(item?.id ?? index)
         }
+
         showsVerticalScrollIndicator={false}
+
         contentContainerStyle={{
           paddingBottom: 40,
         }}
+
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
+            tintColor={colors.accent}
           />
         }
 
@@ -207,7 +321,16 @@ export default function HistoryScreen() {
           const isEntry = type === 'Entrada';
 
           return (
-            <View style={styles.card}>
+
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
 
               {/* ÍCONE */}
 
@@ -216,8 +339,8 @@ export default function HistoryScreen() {
                   styles.iconContainer,
                   {
                     backgroundColor: isEntry
-                      ? '#E2F0F4'
-                      : '#FEF2F2',
+                      ? darkMode ? '#193A45' : '#E2F0F4'
+                      : darkMode ? '#42252C' : '#FEF2F2',
                   },
                 ]}
               >
@@ -231,7 +354,7 @@ export default function HistoryScreen() {
                   size={29}
                   color={
                     isEntry
-                      ? '#094F63'
+                      ? colors.accent
                       : '#DC2626'
                   }
                 />
@@ -245,7 +368,7 @@ export default function HistoryScreen() {
                 <View style={styles.topRow}>
 
                   <Text
-                    style={styles.product}
+                    style={[styles.product, { color: colors.text }]}
                     numberOfLines={1}
                   >
                     {product}
@@ -256,8 +379,8 @@ export default function HistoryScreen() {
                       styles.typeBadge,
                       {
                         backgroundColor: isEntry
-                          ? '#E2F0F4'
-                          : '#FEF2F2',
+                          ? darkMode ? '#193A45' : '#E2F0F4'
+                          : darkMode ? '#42252C' : '#FEF2F2',
                       },
                     ]}
                   >
@@ -267,7 +390,7 @@ export default function HistoryScreen() {
                         styles.type,
                         {
                           color: isEntry
-                            ? '#094F63'
+                            ? colors.accent
                             : '#DC2626',
                         },
                       ]}
@@ -286,16 +409,16 @@ export default function HistoryScreen() {
                     <Ionicons
                       name="cube-outline"
                       size={15}
-                      color="#64748B"
+                      color={colors.muted}
                     />
 
-                    <Text style={styles.quantity}>
+                    <Text style={[styles.quantity, { color: colors.muted }]}>
                       Quantidade: {quantity}
                     </Text>
 
                   </View>
 
-                  <Text style={styles.date}>
+                  <Text style={[styles.date, { color: colors.secondary }]}>
                     {date}
                   </Text>
 
@@ -306,55 +429,77 @@ export default function HistoryScreen() {
                   <Ionicons
                     name="time-outline"
                     size={14}
-                    color="#94A3B8"
+                    color={colors.secondary}
                   />
 
-                  <Text style={styles.hour}>
+                  <Text style={[styles.hour, { color: colors.secondary }]}>
                     {hour}
                   </Text>
 
                 </View>
 
                 {item?.partner ? (
-                  <Text style={[styles.hour, { marginTop: 6 }]}>
+
+                  <Text
+                    style={[
+                      styles.hour,
+                      {
+                        color: colors.secondary,
+                        marginTop: 6,
+                      },
+                    ]}
+                  >
                     {isEntry ? 'Fornecedor' : 'Cliente'}: {item.partner}
                   </Text>
+
                 ) : null}
 
               </View>
 
             </View>
+
           );
+
         }}
 
         ListEmptyComponent={
+
           <View style={styles.emptyContainer}>
 
-            <View style={styles.emptyIcon}>
+            <View style={[styles.emptyIcon, { backgroundColor: colors.soft }]}>
+
               <Ionicons
                 name="time-outline"
                 size={35}
-                color="#094F63"
+                color={colors.accent}
               />
+
             </View>
 
-            <Text style={styles.emptyTitle}>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
               Nenhuma movimentação
             </Text>
 
-            <Text style={styles.emptyText}>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>
               Não foram encontradas movimentações
               para exibir.
             </Text>
 
           </View>
+
         }
+
       />
 
     </View>
+
   );
+
 }
 
+// ======================================================
+// ESTILOS
+// ======================================================
 
 const styles = StyleSheet.create({
 
@@ -371,9 +516,7 @@ const styles = StyleSheet.create({
   header: {
     marginTop: 55,
     marginBottom: 25,
-
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
 
@@ -389,45 +532,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
-  filterButton: {
-    width: 52,
-    height: 52,
-
-    backgroundColor: '#FFFFFF',
-    borderRadius: 17,
-
-    justifyContent: 'center',
-    alignItems: 'center',
-
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-
   /* ================= PESQUISA ================= */
 
   searchContainer: {
     backgroundColor: '#FFFFFF',
     height: 62,
     borderRadius: 20,
-
     flexDirection: 'row',
     alignItems: 'center',
-
     paddingHorizontal: 18,
     marginBottom: 22,
-
     borderWidth: 1,
     borderColor: '#E2E8F0',
-
     shadowColor: '#000000',
     shadowOffset: {
       width: 0,
@@ -441,7 +557,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     marginLeft: 10,
-
     color: '#0F172A',
     fontSize: 16,
   },
@@ -456,15 +571,11 @@ const styles = StyleSheet.create({
 
   statsCard: {
     width: '48%',
-
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
-
     padding: 18,
-
     borderWidth: 1,
     borderColor: '#E2E8F0',
-
     shadowColor: '#000000',
     shadowOffset: {
       width: 0,
@@ -478,10 +589,8 @@ const styles = StyleSheet.create({
   statsIconGreen: {
     width: 45,
     height: 45,
-
     borderRadius: 14,
     backgroundColor: '#E2F0F4',
-
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -489,10 +598,8 @@ const styles = StyleSheet.create({
   statsIconRed: {
     width: 45,
     height: 45,
-
     borderRadius: 14,
     backgroundColor: '#FEF2F2',
-
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -501,7 +608,6 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 28,
     fontWeight: 'bold',
-
     marginTop: 12,
   },
 
@@ -515,18 +621,13 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: '#FFFFFF',
-
     borderRadius: 22,
-
     padding: 17,
     marginBottom: 14,
-
     flexDirection: 'row',
     alignItems: 'center',
-
     borderWidth: 1,
     borderColor: '#E2E8F0',
-
     shadowColor: '#000000',
     shadowOffset: {
       width: 0,
@@ -542,12 +643,9 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 62,
     height: 62,
-
     borderRadius: 18,
-
     justifyContent: 'center',
     alignItems: 'center',
-
     marginRight: 15,
   },
 
@@ -567,7 +665,6 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 17,
     fontWeight: 'bold',
-
     flex: 1,
     marginRight: 8,
   },
@@ -589,7 +686,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-
     marginTop: 10,
   },
 
@@ -614,7 +710,6 @@ const styles = StyleSheet.create({
   hourContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-
     marginTop: 7,
   },
 
@@ -629,20 +724,16 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-
     paddingVertical: 60,
   },
 
   emptyIcon: {
     width: 70,
     height: 70,
-
     borderRadius: 22,
     backgroundColor: '#E2F0F4',
-
     justifyContent: 'center',
     alignItems: 'center',
-
     marginBottom: 15,
   },
 
@@ -655,9 +746,7 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#64748B',
     fontSize: 14,
-
     textAlign: 'center',
-
     marginTop: 7,
     maxWidth: 280,
   },
